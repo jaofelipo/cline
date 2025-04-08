@@ -37,6 +37,19 @@ export interface Locale {
       name: string
       noMatchingMcps: string
       noMcpsInMarketplace: string
-    }    
+    },
+    TaskHeader: {
+      task: string
+      cost: string
+      seeMore: string
+      seeLess: string
+      tokens: string
+      cache: string
+      apiCost: string
+      contextWindow: string
+    },
+    TaskFeedbackButtons: {
+      like: string
+      dislike: string
+    }
 }
-

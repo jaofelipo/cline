@@ -1,0 +1,23 @@
+.iconWrapper {
+  color: var(--vscode-descriptionForeground);
+}
+
+.buttonWrapper {
+  transform: scale(0.85);
+}
+
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.buttonsContainer {
+  display: flex;
+  gap: 0px;
+  opacity: 0.5;
+}
+
+.buttonsContainer:hover { /* Equivalent to &:hover { opacity: 1; } */
+  opacity: 1;
+}

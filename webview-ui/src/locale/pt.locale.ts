@@ -42,5 +42,19 @@ export const ptBr:Locale = {
         name: "Nome",
         noMatchingMcps: "Nenhum servidor MCP correspondente encontrado",
         noMcpsInMarketplace: "Nenhum servidor MCP encontrado no marketplace"
+    },
+    TaskHeader: {
+      task: "Tarefa",
+      cost: "US$",
+      seeMore: "Ver mais",
+      seeLess: "Ver menos",
+      tokens: "Tokens:",
+      cache: "Cache:",
+      apiCost: "Custo da API:",
+      contextWindow: "Janela de Contexto:",
+    },
+    TaskFeedbackButtons: {
+      like: "Isso ajudou",
+      dislike: "Isso não ajudou",
     }
 }

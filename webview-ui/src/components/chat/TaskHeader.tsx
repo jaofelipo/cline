@@ -4,11 +4,13 @@ import { useWindowSize } from "react-use"
 import { mentionRegexGlobal } from "@shared/context-mentions"
 import { ClineMessage } from "@shared/ExtensionMessage"
 import { useExtensionState } from "@/context/ExtensionStateContext"
+import { Locale } from "@/locale/locale"
 import { formatLargeNumber } from "@/utils/format"
 import { formatSize } from "@/utils/format"
 import { vscode } from "@/utils/vscode"
 import Thumbnails from "@/components/common/Thumbnails"
 import { normalizeApiConfiguration } from "@/components/settings/ApiOptions"
+import styles from "./TaskHeader.module.css"
 
 interface TaskHeaderProps {
 	task: ClineMessage
@@ -33,7 +35,8 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
 	lastApiReqTotalTokens,
 	onClose,
 }) => {
-	const { apiConfiguration, currentTaskItem, checkpointTrackerErrorMessage } = useExtensionState()
+	const { locale, apiConfiguration, currentTaskItem, checkpointTrackerErrorMessage } = useExtensionState()
+	const { TaskHeader: labels } = locale;
 	const [isTaskExpanded, setIsTaskExpanded] = useState(false)
 	const [isTextExpanded, setIsTextExpanded] = useState(false)
 	const [showSeeMore, setShowSeeMore] = useState(false)
@@ -109,54 +112,32 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
 	const ContextWindowComponent = (
 		<>
 			{isTaskExpanded && contextWindow && (
-				<div
+				<div 
 					style={{
 						display: "flex",
 						flexDirection: windowWidth < 270 ? "column" : "row",
 						gap: "4px",
 					}}>
-					<div
-						style={{
-							display: "flex",
-							alignItems: "center",
-							gap: "4px",
-							flexShrink: 0, // Prevents shrinking
-						}}>
-						<span style={{ fontWeight: "bold" }}>
+					<div className={styles.contextWindowColumn}>
+						<span className={styles.contextWindowBold}>
 							{/* {windowWidth > 280 && windowWidth < 310 ? "Context:" : "Context Window:"} */}
-							Context Window:
+							{labels.contextWindow}
 						</span>
 					</div>
-					<div
-						style={{
-							display: "flex",
-							alignItems: "center",
-							gap: "3px",
-							flex: 1,
-							whiteSpace: "nowrap",
-						}}>
+					<div className={styles.contextWindowValue}>
 						<span>{formatLargeNumber(lastApiReqTotalTokens || 0)}</span>
-						<div
+						<div 
 							style={{
 								display: "flex",
 								alignItems: "center",
 								gap: "3px",
 								flex: 1,
 							}}>
-							<div
-								style={{
-									flex: 1,
-									height: "4px",
-									backgroundColor: "color-mix(in srgb, var(--vscode-badge-foreground) 20%, transparent)",
-									borderRadius: "2px",
-									overflow: "hidden",
-								}}>
+							<div className={styles.contextWindowBarContainer}>
 								<div
+									className={styles.contextWindowBar}
 									style={{
 										width: `${((lastApiReqTotalTokens || 0) / contextWindow) * 100}%`,
-										height: "100%",
-										backgroundColor: "var(--vscode-badge-foreground)",
-										borderRadius: "2px",
 									}}
 								/>
 							</div>
@@ -169,80 +150,29 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
 	)
 
 	return (
-		<div style={{ padding: "10px 13px 10px 13px" }}>
-			<div
-				style={{
-					backgroundColor: "var(--vscode-badge-background)",
-					color: "var(--vscode-badge-foreground)",
-					borderRadius: "3px",
-					padding: "9px 10px 9px 14px",
-					display: "flex",
-					flexDirection: "column",
-					gap: 6,
-					position: "relative",
-					zIndex: 1,
-				}}>
-				<div
-					style={{
-						display: "flex",
-						justifyContent: "space-between",
-						alignItems: "center",
-					}}>
+		<div className={styles.taskHeader}>
+			<div className={styles.taskHeaderInner}>
+				<div className={styles.headerRow}>
 					<div
-						style={{
-							display: "flex",
-							alignItems: "center",
-							cursor: "pointer",
-							marginLeft: -2,
-							userSelect: "none",
-							WebkitUserSelect: "none",
-							MozUserSelect: "none",
-							msUserSelect: "none",
-							flexGrow: 1,
-							minWidth: 0, // This allows the div to shrink below its content size
-						}}
+						className={styles.taskTitle}
 						onClick={() => setIsTaskExpanded(!isTaskExpanded)}>
-						<div
-							style={{
-								display: "flex",
-								alignItems: "center",
-								flexShrink: 0,
-							}}>
+						<div className={styles.taskTitleIcon}>
 							<span className={`codicon codicon-chevron-${isTaskExpanded ? "down" : "right"}`}></span>
 						</div>
-						<div
-							style={{
-								marginLeft: 6,
-								whiteSpace: "nowrap",
-								overflow: "hidden",
-								textOverflow: "ellipsis",
-								flexGrow: 1,
-								minWidth: 0, // This allows the div to shrink below its content size
-							}}>
+						<div className={styles.taskTitleText}>
 							<span style={{ fontWeight: "bold" }}>
-								Task
+								{labels.task}
 								{!isTaskExpanded && ":"}
 							</span>
 							{!isTaskExpanded && <span style={{ marginLeft: 4 }}>{highlightMentions(task.text, false)}</span>}
 						</div>
 					</div>
 					{!isTaskExpanded && isCostAvailable && (
-						<div
-							style={{
-								marginLeft: 10,
-								backgroundColor: "color-mix(in srgb, var(--vscode-badge-foreground) 70%, transparent)",
-								color: "var(--vscode-badge-background)",
-								padding: "2px 4px",
-								borderRadius: "500px",
-								fontSize: "11px",
-								fontWeight: 500,
-								display: "inline-block",
-								flexShrink: 0,
-							}}>
-							${totalCost?.toFixed(4)}
+						<div className={styles.costBadge}>
+							{labels.cost}{totalCost?.toFixed(4)}
 						</div>
 					)}
-					<VSCodeButton appearance="icon" onClick={onClose} style={{ marginLeft: 6, flexShrink: 0 }}>
+					<VSCodeButton appearance="icon" onClick={onClose} className={styles.closeButton}>
 						<span className="codicon codicon-close"></span>
 					</VSCodeButton>
 				</div>
@@ -272,76 +202,29 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
 								{highlightMentions(task.text, false)}
 							</div>
 							{!isTextExpanded && showSeeMore && (
-								<div
-									style={{
-										position: "absolute",
-										right: 0,
-										bottom: 0,
-										display: "flex",
-										alignItems: "center",
-									}}>
+								<div className={styles.seeMore}>
+									<div className={styles.seeMoreGradient} />
 									<div
-										style={{
-											width: 30,
-											height: "1.2em",
-											background: "linear-gradient(to right, transparent, var(--vscode-badge-background))",
-										}}
-									/>
-									<div
-										style={{
-											cursor: "pointer",
-											color: "var(--vscode-textLink-foreground)",
-											paddingRight: 0,
-											paddingLeft: 3,
-											backgroundColor: "var(--vscode-badge-background)",
-										}}
+										className={styles.seeMoreButton}
 										onClick={() => setIsTextExpanded(!isTextExpanded)}>
-										See more
+										{labels.seeMore}
 									</div>
 								</div>
 							)}
 						</div>
 						{isTextExpanded && showSeeMore && (
 							<div
-								style={{
-									cursor: "pointer",
-									color: "var(--vscode-textLink-foreground)",
-									marginLeft: "auto",
-									textAlign: "right",
-									paddingRight: 2,
-								}}
+								className={styles.seeLess}
 								onClick={() => setIsTextExpanded(!isTextExpanded)}>
-								See less
+								{labels.seeLess}
 							</div>
 						)}
 						{task.images && task.images.length > 0 && <Thumbnails images={task.images} />}
-						<div
-							style={{
-								display: "flex",
-								flexDirection: "column",
-								gap: "4px",
-							}}>
-							<div
-								style={{
-									display: "flex",
-									justifyContent: "space-between",
-									alignItems: "center",
-									height: 17,
-								}}>
-								<div
-									style={{
-										display: "flex",
-										alignItems: "center",
-										gap: "4px",
-										flexWrap: "wrap",
-									}}>
-									<span style={{ fontWeight: "bold" }}>Tokens:</span>
-									<span
-										style={{
-											display: "flex",
-											alignItems: "center",
-											gap: "3px",
-										}}>
+						<div className={styles.details}>
+							<div className={styles.tokensRow}>
+								<div className={styles.tokens}>
+									<span style={{ fontWeight: "bold" }}>{labels.tokens}</span>
+									<span className={styles.tokenValue}>
 										<i
 											className="codicon codicon-arrow-up"
 											style={{
@@ -352,12 +235,7 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
 										/>
 										{formatLargeNumber(tokensIn || 0)}
 									</span>
-									<span
-										style={{
-											display: "flex",
-											alignItems: "center",
-											gap: "3px",
-										}}>
+									<span className={styles.tokenValue}>
 										<i
 											className="codicon codicon-arrow-down"
 											style={{
@@ -378,20 +256,9 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
 								(cacheReads !== undefined ||
 									cacheWrites !== undefined ||
 									apiConfiguration?.apiProvider === "anthropic") && (
-									<div
-										style={{
-											display: "flex",
-											alignItems: "center",
-											gap: "4px",
-											flexWrap: "wrap",
-										}}>
-										<span style={{ fontWeight: "bold" }}>Cache:</span>
-										<span
-											style={{
-												display: "flex",
-												alignItems: "center",
-												gap: "3px",
-											}}>
+									<div className={styles.cacheInfo}>
+										<span style={{ fontWeight: "bold" }}>{labels.cache}</span>
+										<span className={styles.tokenValue}>
 											<i
 												className="codicon codicon-database"
 												style={{
@@ -402,12 +269,7 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
 											/>
 											+{formatLargeNumber(cacheWrites || 0)}
 										</span>
-										<span
-											style={{
-												display: "flex",
-												alignItems: "center",
-												gap: "3px",
-											}}>
+										<span className={styles.tokenValue}>
 											<i
 												className="codicon codicon-arrow-right"
 												style={{
@@ -422,34 +284,16 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
 								)}
 							{ContextWindowComponent}
 							{isCostAvailable && (
-								<div
-									style={{
-										display: "flex",
-										justifyContent: "space-between",
-										alignItems: "center",
-										height: 17,
-									}}>
-									<div
-										style={{
-											display: "flex",
-											alignItems: "center",
-											gap: "4px",
-										}}>
-										<span style={{ fontWeight: "bold" }}>API Cost:</span>
-										<span>${totalCost?.toFixed(4)}</span>
+								<div className={styles.apiCostRow}>
+									<div className={styles.apiCost}>
+										<span style={{ fontWeight: "bold" }}>{labels.apiCost}</span>
+										<span>{labels.cost}{totalCost?.toFixed(4)}</span>
 									</div>
 									<DeleteButton taskSize={formatSize(currentTaskItem?.size)} taskId={currentTaskItem?.id} />
 								</div>
 							)}
 							{checkpointTrackerErrorMessage && (
-								<div
-									style={{
-										display: "flex",
-										alignItems: "center",
-										gap: "8px",
-										color: "var(--vscode-editorWarning-foreground)",
-										fontSize: "11px",
-									}}>
+								<div className={styles.warning}>
 									<i className="codicon codicon-warning" />
 									<span>
 										{checkpointTrackerErrorMessage.replace(/disabling checkpoints\.$/, "")}
@@ -491,34 +335,7 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
 					</>
 				)}
 			</div>
-			{/* {apiProvider === "" && (
-				<div
-					style={{
-						backgroundColor: "color-mix(in srgb, var(--vscode-badge-background) 50%, transparent)",
-						color: "var(--vscode-badge-foreground)",
-						borderRadius: "0 0 3px 3px",
-						display: "flex",
-						justifyContent: "space-between",
-						alignItems: "center",
-						padding: "4px 12px 6px 12px",
-						fontSize: "0.9em",
-						marginLeft: "10px",
-						marginRight: "10px",
-					}}>
-					<div style={{ fontWeight: "500" }}>Credits Remaining:</div>
-					<div>
-						{formatPrice(Credits || 0)}
-						{(Credits || 0) < 1 && (
-							<>
-								{" "}
-								<VSCodeLink style={{ fontSize: "0.9em" }} href={getAddCreditsUrl(vscodeUriScheme)}>
-									(get more?)
-								</VSCodeLink>
-							</>
-						)}
-					</div>
-				</div>
-			)} */}
+
 		</div>
 	)
 }

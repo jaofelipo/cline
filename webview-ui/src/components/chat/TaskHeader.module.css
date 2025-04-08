@@ -1,0 +1,197 @@
+.taskHeader {
+  padding: 10px 13px;
+}
+
+.taskHeaderInner {
+  background-color: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  border-radius: 3px;
+  padding: 9px 10px 9px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+  z-index: 1;
+}
+
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.taskTitle {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  margin-left: -2px;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.taskTitleIcon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.taskTitleText {
+  margin-left: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.costBadge {
+  margin-left: 10px;
+  background-color: color-mix(in srgb, var(--vscode-badge-foreground) 70%, transparent);
+  color: var(--vscode-badge-background);
+  padding: 2px 4px;
+  border-radius: 500px;
+  font-size: 11px;
+  font-weight: 500;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.closeButton {
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
+
+.seeMore {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+}
+
+.seeMoreGradient {
+  width: 30px;
+  height: 1.2em;
+  background: linear-gradient(to right, transparent, var(--vscode-badge-background));
+}
+
+.seeMoreButton {
+  cursor: pointer;
+  color: var(--vscode-textLink-foreground);
+  padding-right: 0;
+  padding-left: 3px;
+  background-color: var(--vscode-badge-background);
+}
+
+.seeLess {
+  cursor: pointer;
+  color: var(--vscode-textLink-foreground);
+  margin-left: auto;
+  text-align: right;
+  padding-right: 2px;
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tokensRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 17px;
+}
+
+.tokens {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.tokenValue {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.tokenIcon {
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: -2px;
+}
+
+.cacheInfo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.apiCostRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 17px;
+}
+
+.apiCost {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--vscode-editorWarning-foreground);
+  font-size: 11px;
+}
+
+.contextWindowColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.contextWindowRow {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+}
+
+.contextWindowBold {
+  font-weight: bold;
+}
+
+.contextWindowValue {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: 1;
+  white-space: nowrap;
+}
+
+.contextWindowBarContainer {
+  flex: 1;
+  height: 4px;
+  background-color: color-mix(in srgb, var(--vscode-badge-foreground) 20%, transparent);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.contextWindowBar {
+  width: 100%;
+  height: 100%;
+  background-color: var(--vscode-badge-foreground);
+  border-radius: 2px;
+}

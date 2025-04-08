@@ -43,6 +43,18 @@ export const en:Locale = {
         noMatchingMcps: "No matching MCP servers found",
         noMcpsInMarketplace: "No MCP servers found in the marketplace",
     },
+    TaskHeader: {
+      task: "Task",
+      cost: "$",
+      seeMore: "See more",
+      seeLess: "See less",
+      tokens: "Tokens:",
+      cache: "Cache:",
+      apiCost: "API Cost:",
+      contextWindow: "Context Window:",
+    },
+    TaskFeedbackButtons: {
+      like: "This was helpful",
+      dislike: "This wasn't helpful",
+    }
 }
-
-
