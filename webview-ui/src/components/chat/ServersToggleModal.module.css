@@ -1,0 +1,43 @@
+.button {
+  padding: 0px 0px;
+  height: 20px;
+}
+
+.buttonIcon {
+  font-size: 12.5px;
+  margin-bottom: 1px;
+}
+
+.modal {
+  position: fixed;
+  left: 15px;
+  right: 15px;
+  border: 1px solid var(--vscode-editorGroup-border);
+  padding: 12px;
+  border-radius: 5px;
+  z-index: 1000;
+  overflow-y: auto;
+  background: var(--vscode-editor-background);
+  max-height: calc(100vh - 100px);
+  overscroll-behavior: contain;
+}
+
+.arrow {
+  position: fixed;
+  width: 10px;
+  height: 10px;
+  z-index: -1;
+  transform: rotate(45deg);
+  border-right: 1px solid var(--vscode-editorGroup-border);
+  border-bottom: 1px solid var(--vscode-editorGroup-border);
+  background: var(--vscode-editor-background);
+}
+
+.mcpServersTitle {
+  margin: 0;
+  margin-bottom: 2.5px;
+}
+
+.serversToggleListContainer {
+  margin-bottom: -10px;
+}

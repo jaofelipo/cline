@@ -56,5 +56,8 @@ export const ptBr:Locale = {
     TaskFeedbackButtons: {
       like: "Isso ajudou",
       dislike: "Isso não ajudou",
+    },
+    ServersToggleModal: {
+      mcpServers: "Servidores MCP",
     }
 }

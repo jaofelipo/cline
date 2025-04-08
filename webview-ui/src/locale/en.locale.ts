@@ -56,5 +56,8 @@ export const en:Locale = {
     TaskFeedbackButtons: {
       like: "This was helpful",
       dislike: "This wasn't helpful",
+    },
+    ServersToggleModal: {
+      mcpServers: "MCP Servers",
     }
 }

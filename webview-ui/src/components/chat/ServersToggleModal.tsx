@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from "react"
+import styles from "./ServersToggleModal.module.css"
 import { useClickAway, useWindowSize } from "react-use"
 import { useExtensionState } from "@/context/ExtensionStateContext"
 import { CODE_BLOCK_BG_COLOR } from "@/components/common/CodeBlock"
@@ -7,7 +8,7 @@ import { vscode } from "@/utils/vscode"
 import { VSCodeButton } from "@vscode/webview-ui-toolkit/react"
 
 const ServersToggleModal: React.FC = () => {
-	const { mcpServers } = useExtensionState()
+	const { locale: { ServersToggleModal: labels }, mcpServers } = useExtensionState()
 	const [isVisible, setIsVisible] = useState(false)
 	const buttonRef = useRef<HTMLDivElement>(null)
 	const modalRef = useRef<HTMLDivElement>(null)
@@ -45,11 +46,10 @@ const ServersToggleModal: React.FC = () => {
 					appearance="icon"
 					aria-label="MCP Servers"
 					onClick={() => setIsVisible(!isVisible)}
-					style={{ padding: "0px 0px", height: "20px" }}>
+					className={styles.button}>
 					<div className="flex items-center gap-1 text-xs whitespace-nowrap min-w-0 w-full">
 						<span
-							className="codicon codicon-server flex items-center"
-							style={{ fontSize: "12.5px", marginBottom: 1 }}
+							className={`codicon codicon-server flex items-center ${styles.buttonIcon}`}
 						/>
 					</div>
 				</VSCodeButton>
@@ -57,7 +57,7 @@ const ServersToggleModal: React.FC = () => {
 
 			{isVisible && (
 				<div
-					className="fixed left-[15px] right-[15px] border border-[var(--vscode-editorGroup-border)] p-3 rounded z-[1000] overflow-y-auto"
+					className={styles.modal}
 					style={{
 						bottom: `calc(100vh - ${menuPosition}px + 6px)`,
 						background: CODE_BLOCK_BG_COLOR,
@@ -65,7 +65,7 @@ const ServersToggleModal: React.FC = () => {
 						overscrollBehavior: "contain",
 					}}>
 					<div
-						className="fixed w-[10px] h-[10px] z-[-1] rotate-45 border-r border-b border-[var(--vscode-editorGroup-border)]"
+						className={styles.arrow}
 						style={{
 							bottom: `calc(100vh - ${menuPosition}px)`,
 							right: arrowPosition,
@@ -73,8 +73,8 @@ const ServersToggleModal: React.FC = () => {
 						}}
 					/>
 
-					<div className="m-0 mb-2.5">MCP Servers</div>
-					<div style={{ marginBottom: "-10px" }}>
+					<div className={styles.mcpServersTitle}>{labels.mcpServers}</div>
+					<div className={styles.serversToggleListContainer}>
 						<ServersToggleList servers={mcpServers} isExpandable={false} hasTrashIcon={false} listGap="small" />
 					</div>
 				</div>

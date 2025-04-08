@@ -51,5 +51,8 @@ export interface Locale {
     TaskFeedbackButtons: {
       like: string
       dislike: string
-    }
+    },
+    ServersToggleModal:{
+      mcpServers: string
+    },
 }
