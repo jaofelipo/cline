@@ -1,29 +1,22 @@
 import { VSCodeButton } from "@vscode/webview-ui-toolkit/react"
 import { useEffect, useState } from "react"
-import styled from "styled-components"
 import { useExtensionState } from "@/context/ExtensionStateContext"
 import { vscode } from "@/utils/vscode"
 import AddRemoteServerForm from "./tabs/add-server/AddRemoteServerForm"
 import McpMarketplaceView from "./tabs/marketplace/McpMarketplaceView"
 import InstalledServersView from "./tabs/installed/InstalledServersView"
+import styles from "./McpConfigurationView.module.css"
 
-type McpViewProps = {
-	onDone: () => void
-}
+type TabViews = "marketplace" | "addRemote" | "installed"
 
-const McpConfigurationView = ({ onDone }: McpViewProps) => {
-	const { mcpMarketplaceEnabled } = useExtensionState()
+function McpConfigurationView ({ onDone }: {onDone: () => void}) 
+{
+	const { mcpMarketplaceEnabled,  locale: { McpConfigurationView:lables } } = useExtensionState()
 	const [activeTab, setActiveTab] = useState(mcpMarketplaceEnabled ? "marketplace" : "installed")
 
-	const handleTabChange = (tab: string) => {
-		setActiveTab(tab)
-	}
-
 	useEffect(() => {
-		if (!mcpMarketplaceEnabled && activeTab === "marketplace") {
-			// If marketplace is disabled and we're on marketplace tab, switch to installed
-			setActiveTab("installed")
-		}
+		if (!mcpMarketplaceEnabled && activeTab === "marketplace") 
+			setActiveTab("installed") // If marketplace is disabled and we're on marketplace tab, switch to installed
 	}, [mcpMarketplaceEnabled, activeTab])
 
 	useEffect(() => {
@@ -34,88 +27,56 @@ const McpConfigurationView = ({ onDone }: McpViewProps) => {
 	}, [mcpMarketplaceEnabled])
 
 	return (
-		<div
-			style={{
-				position: "fixed",
-				top: 0,
-				left: 0,
-				right: 0,
-				bottom: 0,
-				display: "flex",
-				flexDirection: "column",
-			}}>
-			<div
-				style={{
-					display: "flex",
-					justifyContent: "space-between",
-					alignItems: "center",
-					padding: "10px 17px 5px 20px",
-				}}>
-				<h3 style={{ color: "var(--vscode-foreground)", margin: 0 }}>MCP Servers</h3>
-				<VSCodeButton onClick={onDone}>Done</VSCodeButton>
+		<div className={styles.container}>
+			<div className={styles.header}>
+				<h3 className={styles.headerTitle} children={lables.headerTitle}/>
+				<VSCodeButton onClick={onDone} children={lables.doneButton}/>
 			</div>
 
-			<div style={{ flex: 1, overflow: "auto" }}>
+			<div className={styles.content}>
 				{/* Tabs container */}
-				<div
-					style={{
-						display: "flex",
-						gap: "1px",
-						padding: "0 20px 0 20px",
-						borderBottom: "1px solid var(--vscode-panel-border)",
-					}}>
+				<div className={styles.tabsContainer}>
 					{mcpMarketplaceEnabled && (
-						<TabButton isActive={activeTab === "marketplace"} onClick={() => handleTabChange("marketplace")}>
-							Marketplace
-						</TabButton>
+						<TabButton 	isActive={activeTab === "marketplace"} 
+							onClick={() => handleTabChange("marketplace")} 
+							children={lables.tabs.marketplace}/>
 					)}
-					<TabButton isActive={activeTab === "addRemote"} onClick={() => handleTabChange("addRemote")}>
-						Remote Servers
-					</TabButton>
-					<TabButton isActive={activeTab === "installed"} onClick={() => handleTabChange("installed")}>
-						Installed
-					</TabButton>
+					<TabButton isActive={activeTab === "addRemote"} 
+						onClick={() => handleTabChange("addRemote")}
+						children={lables.tabs.remoteServers}/>
+					<TabButton 	isActive={activeTab === "installed"} 
+						onClick={() => handleTabChange("installed")}
+						children={lables.tabs.installed}/>
 				</div>
 
 				{/* Content container */}
-				<div style={{ width: "100%" }}>
-					{mcpMarketplaceEnabled && activeTab === "marketplace" && <McpMarketplaceView />}
-					{activeTab === "addRemote" && <AddRemoteServerForm onServerAdded={() => handleTabChange("installed")} />}
-					{activeTab === "installed" && <InstalledServersView />}
+				<div className={styles.tabContent}>
+					{mcpMarketplaceEnabled && activeTab === "marketplace" && 
+						<McpMarketplaceView />}
+					{activeTab === "addRemote" && 
+						<AddRemoteServerForm 
+							onServerAdded={() => handleTabChange("installed")} />}
+					{activeTab === "installed" && 
+						<InstalledServersView />}
 				</div>
 			</div>
 		</div>
 	)
+
+
+	function handleTabChange(tab:TabViews) 
+	{
+		setActiveTab(tab)
+	}
+
 }
 
-const StyledTabButton = styled.button<{ isActive: boolean }>`
-	background: none;
-	border: none;
-	border-bottom: 2px solid ${(props) => (props.isActive ? "var(--vscode-foreground)" : "transparent")};
-	color: ${(props) => (props.isActive ? "var(--vscode-foreground)" : "var(--vscode-descriptionForeground)")};
-	padding: 8px 16px;
-	cursor: pointer;
-	font-size: 13px;
-	margin-bottom: -1px;
-	font-family: inherit;
-
-	&:hover {
-		color: var(--vscode-foreground);
-	}
-`
-
-export const TabButton = ({
-	children,
-	isActive,
-	onClick,
-}: {
-	children: React.ReactNode
-	isActive: boolean
-	onClick: () => void
-}) => (
-	<StyledTabButton isActive={isActive} onClick={onClick}>
-		{children}
-	</StyledTabButton>
-)
+export function TabButton({children, isActive, onClick}:{children: React.ReactNode; isActive: boolean; onClick: () => void}) 
+{ 
+	return (<button
+	  			className={`${styles.tabButton} ${isActive ? styles.tabButtonActive : ""}`}
+	  			onClick={onClick}
+	  			children={children}/>)
+}
 
 export default McpConfigurationView

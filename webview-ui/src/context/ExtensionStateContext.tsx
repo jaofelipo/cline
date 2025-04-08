@@ -10,6 +10,9 @@ import { vscode } from "../utils/vscode"
 import { DEFAULT_BROWSER_SETTINGS } from "@shared/BrowserSettings"
 import { DEFAULT_CHAT_SETTINGS } from "@shared/ChatSettings"
 import { TelemetrySetting } from "@shared/TelemetrySetting"
+import { Locale } from "@/locale/locale"
+import { en } from "@/locale/en.locale"
+import { ptBr } from "@/locale/pt.locale"
 
 interface ExtensionStateContextType extends ExtensionState {
 	didHydrateState: boolean
@@ -26,6 +29,7 @@ interface ExtensionStateContextType extends ExtensionState {
 	setTelemetrySetting: (value: TelemetrySetting) => void
 	setShowAnnouncement: (value: boolean) => void
 	setPlanActSeparateModelsSetting: (value: boolean) => void
+	locale:Locale
 }
 
 const ExtensionStateContext = createContext<ExtensionStateContextType | undefined>(undefined)
@@ -164,6 +168,7 @@ export const ExtensionStateContextProvider: React.FC<{
 		mcpMarketplaceCatalog,
 		filePaths,
 		totalTasksSize,
+		locale: ptBr,
 		setApiConfiguration: (value) =>
 			setState((prevState) => ({
 				...prevState,
