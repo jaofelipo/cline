@@ -1,0 +1,20 @@
+.formContainer {
+	padding: 16px 20px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.text {
+	color: var(--vscode-foreground);
+}
+
+.link {
+	display: inline;
+}
+
+.button {
+	width: 100%;
+	margin-bottom: 5px;
+	margin-top: 8px;
+}

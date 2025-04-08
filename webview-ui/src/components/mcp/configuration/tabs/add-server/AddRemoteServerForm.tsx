@@ -1,66 +1,102 @@
-import { useCallback, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import { vscode } from "@/utils/vscode"
 import { VSCodeButton, VSCodeLink, VSCodeTextField } from "@vscode/webview-ui-toolkit/react"
 import { useEvent } from "react-use"
-import { LINKS } from "@/constants"
-const AddRemoteServerForm = ({ onServerAdded }: { onServerAdded: () => void }) => {
+import { TextWithLink } from "@/components/basic/TextWithLink"
+import { useExtensionState } from "@/context/ExtensionStateContext"
+import styles from "./AddRemoteServerForm.module.css"
+
+function AddRemoteServerForm ({ onServerAdded }: { onServerAdded: () => void }) 
+{
+	const { locale: { AddRemoteServerForm: labels } } = useExtensionState()
+	
 	const [serverName, setServerName] = useState("")
 	const [serverUrl, setServerUrl] = useState("")
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [error, setError] = useState("")
 	const [showConnectingMessage, setShowConnectingMessage] = useState(false)
 
-	// Store submitted values to check if the server was added
-	const submittedValues = useRef<{ name: string } | null>(null)
+	const submittedValues = useRef<{ name: string } | null>(null) // Store submitted values to check if the server was added
 
-	const handleMessage = useCallback(
-		(event: MessageEvent) => {
-			const message = event.data
+	useEvent("message", handleMessage.useCallback([isSubmitting, onServerAdded]))
 
-			if (
-				message.type === "addRemoteServerResult" &&
-				isSubmitting &&
-				submittedValues.current &&
-				message.addRemoteServerResult?.serverName === submittedValues.current.name
-			) {
-				if (message.addRemoteServerResult.success) {
-					// Handle success
-					setIsSubmitting(false)
-					setServerName("")
-					setServerUrl("")
-					submittedValues.current = null
-					onServerAdded()
-					setShowConnectingMessage(false)
-				} else {
-					// Handle error
-					setIsSubmitting(false)
-					setError(message.addRemoteServerResult.error || "Failed to add server")
-					setShowConnectingMessage(false)
-				}
-			}
-		},
-		[isSubmitting, onServerAdded],
+	return (
+		<div className={styles.container}>
+			<div className={styles.description}>
+				{TextWithLink(labels.instruction)}
+			</div>
+
+			<form onSubmit={handleSubmit}>
+				<div className={styles.field}>
+					<VSCodeTextField
+						value={serverName}
+						onChange={(e) => {
+							setServerName((e.target as HTMLInputElement).value)
+							setError("")
+						}}
+						disabled={isSubmitting}
+						className={styles.input}
+						placeholder="mcp-server"
+						children={labels.serverName}/>
+				</div>
+
+				<div className={styles.field}>
+					<VSCodeTextField
+						value={serverUrl}
+						onChange={(e) => {
+							setServerUrl((e.target as HTMLInputElement).value)
+							setError("")
+						}}
+						disabled={isSubmitting}
+						placeholder="https://example.com/mcp-server"
+						className={styles.input}
+						children={labels.serverUrl}/>
+				</div>
+
+				{error && 
+					<div className={styles.error} 
+						children={error}/>}
+
+				<div className={styles.buttonContainer}>
+					<VSCodeButton type="submit"
+						 disabled={isSubmitting} 
+						 className={styles.input}
+						 children={isSubmitting ? labels.adding : labels.addServer}/>
+
+					{showConnectingMessage && (
+						<div className={styles.connectingMessage} 
+							children={labels.connectingToServer}/>
+					)}
+				</div>
+
+				<VSCodeButton
+					appearance="secondary"
+					className={styles.secondaryButton}
+					onClick={() => vscode.postMessage({ type: "openMcpSettings" })}
+					children={labels.editConfiguration}/>
+			</form>
+		</div>
 	)
 
-	useEvent("message", handleMessage)
 
-	const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+	function handleSubmit (e: React.FormEvent<HTMLFormElement>) 
+	{
 		e.preventDefault()
 
 		if (!serverName.trim()) {
-			setError("Server name is required")
+			setError(labels.serverNameIsRequired)
 			return
 		}
 
 		if (!serverUrl.trim()) {
-			setError("Server URL is required")
+			setError(labels.serverUrlIsRequired)
 			return
 		}
 
 		try {
 			new URL(serverUrl)
 		} catch (err) {
-			setError("Invalid URL format")
+			setError(labels.invalidUrlFormat)
 			return
 		}
 
@@ -77,69 +113,33 @@ const AddRemoteServerForm = ({ onServerAdded }: { onServerAdded: () => void }) =
 		})
 	}
 
-	return (
-		<div className="p-4 px-5">
-			<div className="text-[var(--vscode-foreground)] mb-2">
-				Add a remote MCP server by providing a name and its URL endpoint. Learn more{" "}
-				<VSCodeLink href={LINKS.DOCUMENTATION.REMOTE_MCP_SERVER_DOCS} style={{ display: "inline" }}>
-					here.
-				</VSCodeLink>
-			</div>
+	function handleMessage(event:MessageEvent) 
+	{
+		const message = event.data
 
-			<form onSubmit={handleSubmit}>
-				<div className="mb-2">
-					<VSCodeTextField
-						value={serverName}
-						onChange={(e) => {
-							setServerName((e.target as HTMLInputElement).value)
-							setError("")
-						}}
-						disabled={isSubmitting}
-						className="w-full"
-						placeholder="mcp-server">
-						Server Name
-					</VSCodeTextField>
-				</div>
+		if (message.type === "addRemoteServerResult" &&
+			isSubmitting &&
+			submittedValues.current &&
+			message.addRemoteServerResult?.serverName === submittedValues.current.name) 
+		{
+			if (message.addRemoteServerResult.success)  // Handle success
+			{
+				setIsSubmitting(false)
+				setServerName("")
+				setServerUrl("")
+				submittedValues.current = null
+				onServerAdded()
+				setShowConnectingMessage(false)
+			} 
+			else  // Handle error
+			{
+				setIsSubmitting(false)
+				setError(message.addRemoteServerResult.error || labels.failedToAddServer)
+				setShowConnectingMessage(false)
+			}
+		}
+	}
 
-				<div className="mb-2">
-					<VSCodeTextField
-						value={serverUrl}
-						onChange={(e) => {
-							setServerUrl((e.target as HTMLInputElement).value)
-							setError("")
-						}}
-						disabled={isSubmitting}
-						placeholder="https://example.com/mcp-server"
-						className="w-full mr-4">
-						Server URL
-					</VSCodeTextField>
-				</div>
-
-				{error && <div className="mb-3 text-[var(--vscode-errorForeground)]">{error}</div>}
-
-				<div className="flex items-center mt-3 w-full">
-					<VSCodeButton type="submit" disabled={isSubmitting} className="w-full">
-						{isSubmitting ? "Adding..." : "Add Server"}
-					</VSCodeButton>
-
-					{showConnectingMessage && (
-						<div className="ml-3 text-[var(--vscode-notificationsInfoIcon-foreground)] text-sm">
-							Connecting to server... This may take a few seconds.
-						</div>
-					)}
-				</div>
-
-				<VSCodeButton
-					appearance="secondary"
-					style={{ width: "100%", marginBottom: "5px", marginTop: 15 }}
-					onClick={() => {
-						vscode.postMessage({ type: "openMcpSettings" })
-					}}>
-					Edit Configuration
-				</VSCodeButton>
-			</form>
-		</div>
-	)
 }
 
 export default AddRemoteServerForm

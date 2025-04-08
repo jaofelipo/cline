@@ -1,0 +1,44 @@
+.container {
+    padding: 1rem 1.25rem;
+  }
+  
+  .description {
+    color: var(--vscode-foreground);
+    margin-bottom: 0.5rem;
+  }
+  
+  .error {
+    color: var(--vscode-errorForeground);
+    margin-bottom: 0.75rem;
+  }
+  
+  .field {
+    margin-bottom: 0.5rem;
+  }
+  
+  .buttonContainer {
+    display: flex;
+    align-items: center;
+    margin-top: 0.75rem;
+    width: 100%;
+  }
+  
+  .connectingMessage {
+    margin-left: 0.75rem;
+    color: var(--vscode-notificationsInfoIcon-foreground);
+    font-size: 0.875rem;
+  }
+  
+  .input {
+    width: 100%;
+  }
+  
+  .secondaryButton {
+    width: 100%;
+    margin-bottom: 5px;
+    margin-top: 15px;
+  }
+  
+  .link {
+    display: inline;
+  }

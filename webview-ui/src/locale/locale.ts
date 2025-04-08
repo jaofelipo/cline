@@ -7,6 +7,23 @@ export interface Locale {
           remoteServers: string
           installed: string
         }
+    },
+    AddLocalServerForm: {
+      addLocalServer: string;
+      openMcpSettings: string;
+    },
+    AddRemoteServerForm:{
+      instruction: string
+      serverNameIsRequired: string
+      serverUrlIsRequired: string
+      invalidUrlFormat: string
+      failedToAddServer: string
+      serverName: string
+      serverUrl: string
+      adding: string
+      addServer: string
+      connectingToServer: string
+      editConfiguration: string
     }
 }
 
