@@ -6,7 +6,7 @@ export const ptBr:Locale = {
         doneButton: "Feito",
         tabs: {
             marketplace: "Marketplace",
-            remoteServers: "Servidor remoto",
+            remoteServers: "Server remoto",
             installed: "Instalados"
         }
     },
@@ -30,4 +30,17 @@ export const ptBr:Locale = {
         connectingToServer: "Conectando ao servidor... Isso pode levar alguns segundos.",
         editConfiguration: "Editar Configuração",
     },
+    McpMarketplaceViewLabels:{
+        retry: "Tentar novamente",
+        searchMcps: "Pesquisar MCPs...",
+        clearSearch: "Limpar pesquisa",
+        filter: "Filtro:",
+        allCategories: "Todas as Categorias",
+        sort: "Ordenar:",
+        newest: "Mais recentes",
+        githubStars: "Estrelas no GitHub",
+        name: "Nome",
+        noMatchingMcps: "Nenhum servidor MCP correspondente encontrado",
+        noMcpsInMarketplace: "Nenhum servidor MCP encontrado no marketplace"
+    }
 }

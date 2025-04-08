@@ -29,7 +29,20 @@ export const en:Locale = {
         addServer: "Add Server",
         connectingToServer: "Connecting to server... This may take a few seconds.",
         editConfiguration: "Edit Configuration",
-    }
+    },
+    McpMarketplaceViewLabels:{
+        retry: "Retry",
+        searchMcps: "Search MCPs...",
+        clearSearch: "Clear search",
+        filter: "Filter:",
+        allCategories: "All Categories",
+        sort: "Sort:",
+        newest: "Newest",
+        githubStars: "GitHub Stars",
+        name: "Name",
+        noMatchingMcps: "No matching MCP servers found",
+        noMcpsInMarketplace: "No MCP servers found in the marketplace",
+    },
 }
 
 

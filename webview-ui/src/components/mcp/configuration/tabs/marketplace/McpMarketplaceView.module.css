@@ -1,0 +1,131 @@
+.loadingContainer {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	height: 100%;
+	padding: 20px;
+}
+
+.errorContainer {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	height: 100%;
+	padding: 20px;
+	gap: 12px;
+}
+
+.errorText {
+	color: var(--vscode-errorForeground);
+}
+
+.mainContainer {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+}
+
+.filterSection {
+	padding: 20px 20px 5px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.searchInput {
+	width: 100%;
+}
+
+.searchIcon {
+	font-size: 13px;
+	opacity: 0.8;
+}
+
+.clearSearchIcon {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	height: 100%;
+	cursor: pointer;
+}
+
+.filterRow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.filterLabel {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	text-transform: uppercase;
+	font-weight: 500;
+	flex-shrink: 0;
+}
+
+.dropdownContainer {
+	position: relative;
+	z-index: 2;
+	flex: 1;
+}
+
+.dropdown {
+	width: 100%;
+}
+
+.sortRow {
+	display: flex;
+	gap: 8px;
+}
+
+.sortLabel {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	text-transform: uppercase;
+	font-weight: 500;
+	margin-top: 3px;
+}
+
+.radioGroup {
+	display: flex;
+	flex-wrap: wrap;
+	margin-top: -2.5px;
+}
+
+.itemsContainer {
+	display: flex;
+	flex-direction: column;
+}
+
+.noItems {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	height: 100%;
+	padding: 20px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.mcp-search-input,
+.mcp-select {
+	box-sizing: border-box;
+}
+
+.mcp-search-input {
+	min-width: 140px;
+}
+
+.mcp-search-input:focus,
+.mcp-select:focus {
+	border-color: var(--vscode-focusBorder) !important;
+}
+
+.mcp-search-input:hover,
+.mcp-select:hover {
+	opacity: 0.9;
+}
+
+.errorButton {
+	margin-right: 6px
+}

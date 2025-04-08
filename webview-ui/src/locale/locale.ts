@@ -24,6 +24,19 @@ export interface Locale {
       addServer: string
       connectingToServer: string
       editConfiguration: string
-    }
+    },
+    McpMarketplaceViewLabels: {
+      retry: string
+      searchMcps: string
+      clearSearch:string
+      filter: string
+      allCategories: string
+      sort: string
+      newest: string
+      githubStars: string
+      name: string
+      noMatchingMcps: string
+      noMcpsInMarketplace: string
+    }    
 }
 

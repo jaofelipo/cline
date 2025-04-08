@@ -1,6 +1,4 @@
 /* eslint-disable react-hooks/rules-of-hooks */
-/* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable no-extend-native */
 import React from "react";
 
 declare global 
