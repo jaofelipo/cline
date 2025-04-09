@@ -4,7 +4,6 @@ import { useWindowSize } from "react-use"
 import { mentionRegexGlobal } from "@shared/context-mentions"
 import { ClineMessage } from "@shared/ExtensionMessage"
 import { useExtensionState } from "@/context/ExtensionStateContext"
-import { Locale } from "@/locale/locale"
 import { formatLargeNumber } from "@/utils/format"
 import { formatSize } from "@/utils/format"
 import { vscode } from "@/utils/vscode"
@@ -35,8 +34,7 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
 	lastApiReqTotalTokens,
 	onClose,
 }) => {
-	const { locale, apiConfiguration, currentTaskItem, checkpointTrackerErrorMessage } = useExtensionState()
-	const { TaskHeader: labels } = locale;
+	const { locale: { TaskHeader: labels }, apiConfiguration, currentTaskItem, checkpointTrackerErrorMessage } = useExtensionState()
 	const [isTaskExpanded, setIsTaskExpanded] = useState(false)
 	const [isTextExpanded, setIsTextExpanded] = useState(false)
 	const [showSeeMore, setShowSeeMore] = useState(false)

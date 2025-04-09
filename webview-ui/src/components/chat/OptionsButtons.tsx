@@ -43,9 +43,6 @@ export const OptionsButtons = ({
 				paddingTop: 15,
 				// marginTop: "22px",
 			}}>
-			{/* <div style={{ color: "var(--vscode-descriptionForeground)", fontSize: "11px", textTransform: "uppercase" }}>
-				SELECT ONE:
-			</div> */}
 			{options.map((option, index) => (
 				<OptionButton
 					key={index}

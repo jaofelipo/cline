@@ -1,0 +1,98 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.lineHeight {
+  line-height: 1.2;
+}
+
+.description {
+  font-size: 0.85em;
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.filePath {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
+
+.menuContainer {
+  position: absolute;
+  bottom: calc(100% - 10px);
+  left: 15;
+  right: 15;
+  overflow-x: hidden;
+}
+
+.menu {
+  background-color: var(--vscode-dropdown-background);
+  border: 1px solid var(--vscode-editorGroup-border);
+  border-radius: 3px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.loading {
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0.7;
+}
+
+.loadingIcon {
+  font-size: 14px;
+}
+
+.option {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--vscode-editorGroup-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.optionSelected {
+  color: var(--vscode-quickInputList-focusForeground);
+  background-color: var(--vscode-quickInputList-focusBackground);
+}
+
+.optionContent {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.optionIcon {
+  margin-right: 8px;
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.chevron {
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-left: 8;
+}
+
+.addIcon {
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-left: 8;
+}

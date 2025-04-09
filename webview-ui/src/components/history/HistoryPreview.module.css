@@ -1,0 +1,92 @@
+.historyPreviewItem {
+  background-color: color-mix(in srgb, var(--vscode-toolbar-hoverBackground) 65%, transparent);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+  opacity: 0.8;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+
+.historyPreviewItem:hover {
+  background-color: color-mix(in srgb, var(--vscode-toolbar-hoverBackground) 100%, transparent);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.container {
+  flex-shrink: 0;
+}
+
+.header {
+  color: var(--vscode-descriptionForeground);
+  margin: 10px 20px 10px 20px;
+  display: flex;
+  align-items: center;
+}
+
+.headerIcon {
+  margin-right: 4px;
+  transform: scale(0.9);
+}
+
+.headerText {
+  font-weight: 500;
+  font-size: 0.85em;
+  text-transform: uppercase;
+}
+
+.content {
+  padding: 0px 20px 0 20px;
+}
+
+.itemContainer {
+  padding: 12px;
+}
+
+.itemDate {
+  color: var(--vscode-descriptionForeground);
+  font-weight: 500;
+  font-size: 0.85em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.itemTask {
+  font-size: var(--vscode-font-size);
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.itemDetails {
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground);
+}
+
+.viewAllButtonContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viewAllButton {
+  opacity: 0.9;
+  font-size: var(--vscode-font-size);
+  color: var(--vscode-descriptionForeground);
+}
+
+.commentIcon {
+  margin-right: 4px;
+  transform: scale(0.9);
+}
+
+.viewAllButtonContainer button {
+  opacity: 0.9;
+}
