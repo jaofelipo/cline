@@ -4,7 +4,6 @@ import rehypeHighlight, { Options } from "rehype-highlight"
 import styled from "styled-components"
 import { visit } from "unist-util-visit"
 import { useExtensionState } from "@/context/ExtensionStateContext"
-import { CODE_BLOCK_BG_COLOR } from "@/components/common/CodeBlock"
 import MermaidBlock from "@/components/common/MermaidBlock"
 
 interface MarkdownBlockProps {
@@ -91,7 +90,7 @@ const remarkPreventBoldFilenames = () => {
 
 const StyledMarkdown = styled.div`
 	pre {
-		background-color: ${CODE_BLOCK_BG_COLOR};
+		background-color: var(--global-background);
 		border-radius: 3px;
 		margin: 13x 0;
 		padding: 10px 10px;
@@ -119,7 +118,7 @@ const StyledMarkdown = styled.div`
 		}
 		word-wrap: break-word;
 		border-radius: 3px;
-		background-color: ${CODE_BLOCK_BG_COLOR};
+		background-color: var(--global-background);
 		font-size: var(--vscode-editor-font-size, var(--vscode-font-size, 12px));
 		font-family: var(--vscode-editor-font-family);
 	}

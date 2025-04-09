@@ -5,7 +5,6 @@ import styled from "styled-components"
 import { BROWSER_VIEWPORT_PRESETS } from "@shared/BrowserSettings"
 import { useExtensionState } from "@/context/ExtensionStateContext"
 import { vscode } from "@/utils/vscode"
-import { CODE_BLOCK_BG_COLOR } from "../common/CodeBlock"
 
 interface ConnectionInfo {
 	isConnected: boolean

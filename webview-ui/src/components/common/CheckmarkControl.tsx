@@ -3,7 +3,6 @@ import { useEvent } from "react-use"
 import styled from "styled-components"
 import { ExtensionMessage } from "@shared/ExtensionMessage"
 import { vscode } from "@/utils/vscode"
-import { CODE_BLOCK_BG_COLOR } from "@/components/common/CodeBlock"
 import { VSCodeButton } from "@vscode/webview-ui-toolkit/react"
 import { createPortal } from "react-dom"
 import { useFloating, offset, flip, shift } from "@floating-ui/react"
@@ -336,7 +335,7 @@ const RestoreOption = styled.div`
 
 const RestoreConfirmTooltip = styled.div`
 	position: fixed;
-	background: ${CODE_BLOCK_BG_COLOR};
+	background: var(--global-background);
 	border: 1px solid var(--vscode-editorGroup-border);
 	padding: 12px;
 	border-radius: 3px;
@@ -361,7 +360,7 @@ const RestoreConfirmTooltip = styled.div`
 		right: 24px;
 		width: 10px;
 		height: 10px;
-		background: ${CODE_BLOCK_BG_COLOR};
+		background: var(--global-background);
 		border-left: 1px solid var(--vscode-editorGroup-border);
 		border-top: 1px solid var(--vscode-editorGroup-border);
 		transform: rotate(45deg);

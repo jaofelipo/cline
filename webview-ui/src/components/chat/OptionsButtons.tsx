@@ -1,10 +1,9 @@
 import styled from "styled-components"
-import { CODE_BLOCK_BG_COLOR } from "@/components/common/CodeBlock"
 import { vscode } from "@/utils/vscode"
 
 const OptionButton = styled.button<{ isSelected?: boolean; isNotSelectable?: boolean }>`
 	padding: 8px 12px;
-	background: ${(props) => (props.isSelected ? "var(--vscode-focusBorder)" : CODE_BLOCK_BG_COLOR)};
+	background: ${(props) => (props.isSelected ? "var(--vscode-focusBorder)" : 'var(--global-background)')};
 	color: ${(props) => (props.isSelected ? "white" : "var(--vscode-input-foreground)")};
 	border: 1px solid var(--vscode-editorGroup-border);
 	border-radius: 2px;

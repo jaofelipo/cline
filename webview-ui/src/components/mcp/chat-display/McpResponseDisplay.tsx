@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback } from "react"
 import LinkPreview from "./LinkPreview"
 import ImagePreview from "./ImagePreview"
 import styled from "styled-components"
-import { CODE_BLOCK_BG_COLOR } from "@/components/common/CodeBlock"
 import ChatErrorBoundary from "@/components/chat/ChatErrorBoundary"
 import { isUrl, isLocalhostUrl, formatUrlForOpening, checkIfImageUrl } from "./utils/mcpRichUtil"
 
@@ -74,7 +73,7 @@ const ResponseContainer = styled.div`
 	position: relative;
 	font-family: var(--vscode-editor-font-family, monospace);
 	font-size: var(--vscode-editor-font-size, 12px);
-	background-color: ${CODE_BLOCK_BG_COLOR};
+	background-color: var(--global-background);
 	color: var(--vscode-editor-foreground, #d4d4d4);
 	border-radius: 3px;
 	border: 1px solid var(--vscode-editorGroup-border);

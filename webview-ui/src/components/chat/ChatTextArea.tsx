@@ -18,7 +18,6 @@ import {
 import { useMetaKeyDetection, useShortcut } from "@/utils/hooks"
 import { validateApiConfiguration, validateModelId } from "@/utils/validate"
 import { vscode } from "@/utils/vscode"
-import { CODE_BLOCK_BG_COLOR } from "@/components/common/CodeBlock"
 import Thumbnails from "@/components/common/Thumbnails"
 import Tooltip from "@/components/common/Tooltip"
 import ApiOptions, { normalizeApiConfiguration } from "@/components/settings/ApiOptions"
@@ -111,7 +110,7 @@ const ModelSelectorTooltip = styled.div<ModelSelectorTooltipProps>`
 	bottom: calc(100% + 9px);
 	left: 15px;
 	right: 15px;
-	background: ${CODE_BLOCK_BG_COLOR};
+	background: var(--global-background);
 	border: 1px solid var(--vscode-editorGroup-border);
 	padding: 12px;
 	border-radius: 3px;
@@ -138,7 +137,7 @@ const ModelSelectorTooltip = styled.div<ModelSelectorTooltipProps>`
 		right: ${(props) => props.arrowPosition}px;
 		width: 10px;
 		height: 10px;
-		background: ${CODE_BLOCK_BG_COLOR};
+		background: var(--global-background);
 		border-right: 1px solid var(--vscode-editorGroup-border);
 		border-bottom: 1px solid var(--vscode-editorGroup-border);
 		transform: rotate(45deg);

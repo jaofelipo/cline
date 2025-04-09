@@ -9,7 +9,7 @@ import { useExtensionState } from "@/context/ExtensionStateContext"
 import { vscode } from "@/utils/vscode"
 import { BrowserSettingsMenu } from "@/components/browser/BrowserSettingsMenu"
 import { CheckpointControls } from "@/components/common/CheckpointControls"
-import CodeBlock, { CODE_BLOCK_BG_COLOR } from "@/components/common/CodeBlock"
+import CodeBlock from "@/components/common/CodeBlock"
 import { ChatRowContent, ProgressIndicator } from "@/components/chat/ChatRow"
 
 interface BrowserSessionRowProps {
@@ -81,12 +81,12 @@ const codeBlockContainerStyle: CSSProperties = {
 	borderRadius: 3,
 	border: "1px solid var(--vscode-editorGroup-border)",
 	overflow: "hidden",
-	backgroundColor: CODE_BLOCK_BG_COLOR,
+	backgroundColor: 'var(--global-background)',
 }
 const browserActionBoxContainerStyle: CSSProperties = { padding: "10px 0 0 0" }
 const browserActionBoxContainerInnerStyle: CSSProperties = {
 	borderRadius: 3,
-	backgroundColor: CODE_BLOCK_BG_COLOR,
+	backgroundColor: 'var(--global-background)',
 	overflow: "hidden",
 	border: "1px solid var(--vscode-editorGroup-border)",
 }
@@ -345,7 +345,7 @@ const BrowserSessionRow = memo((props: BrowserSessionRowProps) => {
 					borderRadius: 3,
 					border: "1px solid var(--vscode-editorGroup-border)",
 					// overflow: "hidden",
-					backgroundColor: CODE_BLOCK_BG_COLOR,
+					backgroundColor: 'var(--global-background)',
 					// marginBottom: 10,
 					maxWidth,
 					margin: "0 auto 10px auto", // Center the container
