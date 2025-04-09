@@ -2,7 +2,6 @@ import React, { useRef, useState, useEffect } from "react"
 import styles from "./ServersToggleModal.module.css"
 import { useClickAway, useWindowSize } from "react-use"
 import { useExtensionState } from "@/context/ExtensionStateContext"
-import { CODE_BLOCK_BG_COLOR } from "@/components/common/CodeBlock"
 import ServersToggleList from "@/components/mcp/configuration/tabs/installed/ServersToggleList"
 import { vscode } from "@/utils/vscode"
 import { VSCodeButton } from "@vscode/webview-ui-toolkit/react"
@@ -60,7 +59,7 @@ const ServersToggleModal: React.FC = () => {
 					className={styles.modal}
 					style={{
 						bottom: `calc(100vh - ${menuPosition}px + 6px)`,
-						background: CODE_BLOCK_BG_COLOR,
+						background: 'var(--global-background)',
 						maxHeight: "calc(100vh - 100px)",
 						overscrollBehavior: "contain",
 					}}>
@@ -69,7 +68,7 @@ const ServersToggleModal: React.FC = () => {
 						style={{
 							bottom: `calc(100vh - ${menuPosition}px)`,
 							right: arrowPosition,
-							background: CODE_BLOCK_BG_COLOR,
+							background: 'var(--global-background)',
 						}}
 					/>
 

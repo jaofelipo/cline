@@ -20,7 +20,7 @@ import { vscode } from "@/utils/vscode"
 import { CheckmarkControl } from "@/components/common/CheckmarkControl"
 import { CheckpointControls, CheckpointOverlay } from "../common/CheckpointControls"
 import CodeAccordian, { cleanPathPrefix } from "../common/CodeAccordian"
-import CodeBlock, { CODE_BLOCK_BG_COLOR } from "@/components/common/CodeBlock"
+import CodeBlock from "@/components/common/CodeBlock"
 import MarkdownBlock from "@/components/common/MarkdownBlock"
 import Thumbnails from "@/components/common/Thumbnails"
 import McpToolRow from "@/components/mcp/configuration/tabs/installed/server-row/McpToolRow"
@@ -400,7 +400,7 @@ export const ChatRowContent = ({ message, isExpanded, onToggleExpand, lastModifi
 						<div
 							style={{
 								borderRadius: 3,
-								backgroundColor: CODE_BLOCK_BG_COLOR,
+								backgroundColor: 'var(--global-background)',
 								overflow: "hidden",
 								border: "1px solid var(--vscode-editorGroup-border)",
 							}}>
@@ -573,7 +573,7 @@ export const ChatRowContent = ({ message, isExpanded, onToggleExpand, lastModifi
 						borderRadius: 3,
 						border: "1px solid var(--vscode-editorGroup-border)",
 						overflow: "hidden",
-						backgroundColor: CODE_BLOCK_BG_COLOR,
+						backgroundColor: 'var(--global-background)',
 					}}>
 					<CodeBlock source={`${"```"}shell\n${command}\n${"```"}`} forceWrap={true} />
 					{output.length > 0 && (

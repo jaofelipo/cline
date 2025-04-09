@@ -4,7 +4,6 @@ import { useClickAway, useEvent } from "react-use"
 import styled from "styled-components"
 import { ExtensionMessage } from "@shared/ExtensionMessage"
 import { vscode } from "@/utils/vscode"
-import { CODE_BLOCK_BG_COLOR } from "@/components/common/CodeBlock"
 import { ClineCheckpointRestore } from "@shared/WebviewMessage"
 
 interface CheckpointOverlayProps {
@@ -223,7 +222,7 @@ const RestoreConfirmTooltip = styled.div`
 	position: absolute;
 	top: calc(100% - 0.5px);
 	right: 0;
-	background: ${CODE_BLOCK_BG_COLOR};
+	background: var(--global-background);
 	border: 1px solid var(--vscode-editorGroup-border);
 	padding: 12px;
 	border-radius: 3px;
@@ -251,7 +250,7 @@ const RestoreConfirmTooltip = styled.div`
 		right: 6px;
 		width: 10px;
 		height: 10px;
-		background: ${CODE_BLOCK_BG_COLOR};
+		background: var(--global-background);
 		border-left: 1px solid var(--vscode-editorGroup-border);
 		border-top: 1px solid var(--vscode-editorGroup-border);
 		transform: rotate(45deg);

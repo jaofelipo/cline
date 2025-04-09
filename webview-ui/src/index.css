@@ -173,3 +173,7 @@ vscode-dropdown::part(listbox) {
 	border-radius: 3px;
 	box-shadow: 0 0 0 0.5px color-mix(in srgb, var(--vscode-badge-foreground) 30%, transparent);
 }
+
+:root {
+	--global-background: var(--vscode-editor-background, var(--vscode-sideBar-background, rgb(30, 30, 30)));
+  }
