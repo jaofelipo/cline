@@ -5,6 +5,26 @@ import { WebviewProvider } from "../../core/webview"
 import { AutoApprovalSettings } from "../../shared/AutoApprovalSettings"
 import { updateGlobalState, getAllExtensionState } from "../../core/storage/state"
 
+// Task completion tracking
+let taskCompletionResolver: (() => void) | null = null
+
+// Function to create a new task completion promise
+function createTaskCompletionTracker(): Promise<void> {
+	// Create a new promise that will resolve when the task is completed
+	return new Promise<void>((resolve) => {
+		taskCompletionResolver = resolve
+	})
+}
+
+// Function to mark the current task as completed
+function completeTask(): void {
+	if (taskCompletionResolver) {
+		taskCompletionResolver()
+		taskCompletionResolver = null
+		Logger.log("Task marked as completed")
+	}
+}
+
 let testServer: http.Server | undefined
 let messageCatcherDisposable: vscode.Disposable | undefined
 
@@ -23,13 +43,15 @@ async function updateAutoApprovalSettings(context: vscode.ExtensionContext, prov
 			enabled: true,
 			actions: {
 				readFiles: true,
+				readFilesExternally: true,
 				editFiles: true,
+				editFilesExternally: true,
 				executeSafeCommands: true,
 				executeAllCommands: true,
 				useBrowser: false, // Keep browser disabled for tests
 				useMcp: false, // Keep MCP disabled for tests
 			},
-			maxRequests: 100, // Increase max requests for tests
+			maxRequests: 10000, // Increase max requests for tests
 		}
 
 		await updateGlobalState(context, "autoApprovalSettings", updatedSettings)
@@ -116,11 +138,41 @@ export function createTestServer(webviewProvider?: WebviewProvider): http.Server
 					}
 
 					// Initiate the new task
-					const taskId = await visibleWebview.controller.initClineWithTask(task)
+					const taskId = await visibleWebview.controller.initTask(task)
 
-					// Return success response with the task ID
-					res.writeHead(200, { "Content-Type": "application/json" })
-					res.end(JSON.stringify({ success: true, taskId }))
+					// Create a completion tracker for this task
+					const completionPromise = createTaskCompletionTracker()
+
+					// Wait for the task to complete with a timeout
+					const timeoutPromise = new Promise<void>((_, reject) => {
+						setTimeout(() => reject(new Error("Task completion timeout")), 15 * 60 * 1000) // 15 minute timeout
+					})
+
+					try {
+						// Wait for either completion or timeout
+						await Promise.race([completionPromise, timeoutPromise])
+
+						// Return success response with the task ID
+						res.writeHead(200, { "Content-Type": "application/json" })
+						res.end(
+							JSON.stringify({
+								success: true,
+								taskId,
+								completed: true,
+							}),
+						)
+					} catch (timeoutError) {
+						// Task didn't complete within the timeout period
+						res.writeHead(200, { "Content-Type": "application/json" })
+						res.end(
+							JSON.stringify({
+								success: true,
+								taskId,
+								completed: false,
+								timeout: true,
+							}),
+						)
+					}
 				} catch (error) {
 					Logger.log(`Error initiating task: ${error}`)
 					res.writeHead(500)
@@ -169,6 +221,13 @@ export function createMessageCatcher(webviewProvider: WebviewProvider): vscode.D
 		const originalPostMessageToWebview = webviewProvider.controller.postMessageToWebview
 		webviewProvider.controller.postMessageToWebview = async (message) => {
 			Logger.log("Cline message received: " + JSON.stringify(message))
+
+			// Check for completion_result message
+			if (message.type === "partialMessage" && message.partialMessage?.say === "completion_result") {
+				// Complete the current task
+				completeTask()
+			}
+
 			return originalPostMessageToWebview.call(webviewProvider.controller, message)
 		}
 	} else {
