@@ -5,14 +5,21 @@ import { vscode } from "@/utils/vscode"
 import AddRemoteServerForm from "./tabs/add-server/AddRemoteServerForm"
 import McpMarketplaceView from "./tabs/marketplace/McpMarketplaceView"
 import InstalledServersView from "./tabs/installed/InstalledServersView"
+import { McpViewTab } from "@shared/mcp"
 import styles from "./McpConfigurationView.module.css"
 
-type TabViews = "marketplace" | "addRemote" | "installed"
+type McpViewProps = {
+	onDone: () => void
+	initialTab?: McpViewTab
+}
 
-function McpConfigurationView ({ onDone }: {onDone: () => void}) 
-{
+const McpConfigurationView = ({ onDone, initialTab }: McpViewProps) => {
 	const { mcpMarketplaceEnabled,  locale: { McpConfigurationView:lables } } = useExtensionState()
-	const [activeTab, setActiveTab] = useState(mcpMarketplaceEnabled ? "marketplace" : "installed")
+	const [activeTab, setActiveTab] = useState<McpViewTab>(initialTab || (mcpMarketplaceEnabled ? "marketplace" : "installed"))
+
+	const handleTabChange = (tab: McpViewTab) => {
+		setActiveTab(tab)
+	}
 
 	useEffect(() => {
 		if (!mcpMarketplaceEnabled && activeTab === "marketplace") 

@@ -275,7 +275,6 @@ const BrowserSessionRow = memo((props: BrowserSessionRowProps) => {
 				consoleLogs: currentPage?.currentState.consoleLogs,
 				screenshot: currentPage?.currentState.screenshot,
 			}
-
 	const [actionContent, { height: actionHeight }] = useSize(
 		<div>
 			{currentPage?.nextAction?.messages.map((message) => (
