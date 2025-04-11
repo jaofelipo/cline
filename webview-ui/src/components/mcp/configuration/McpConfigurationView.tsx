@@ -17,10 +17,6 @@ const McpConfigurationView = ({ onDone, initialTab }: McpViewProps) => {
 	const { mcpMarketplaceEnabled,  locale: { McpConfigurationView:lables } } = useExtensionState()
 	const [activeTab, setActiveTab] = useState<McpViewTab>(initialTab || (mcpMarketplaceEnabled ? "marketplace" : "installed"))
 
-	const handleTabChange = (tab: McpViewTab) => {
-		setActiveTab(tab)
-	}
-
 	useEffect(() => {
 		if (!mcpMarketplaceEnabled && activeTab === "marketplace") 
 			setActiveTab("installed") // If marketplace is disabled and we're on marketplace tab, switch to installed
@@ -71,7 +67,7 @@ const McpConfigurationView = ({ onDone, initialTab }: McpViewProps) => {
 	)
 
 
-	function handleTabChange(tab:TabViews) 
+	function handleTabChange(tab: McpViewTab) 
 	{
 		setActiveTab(tab)
 	}

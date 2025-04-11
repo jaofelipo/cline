@@ -72,15 +72,12 @@ const ServersToggleModal: React.FC = () => {
 						}}
 					/>
 
-					<div className="flex justify-between items-center mb-2.5">
-						<h3 className="m-0">MCP Servers</h3>
+					<div className={styles.mcpServersTitle}>
+						<h3>{labels.mcpServers}</h3>
 						<VSCodeButton
 							appearance="icon"
-							onClick={() => {
-								vscode.postMessage({
-									type: "showMcpView",
-									tab: "installed",
-								})
+							onClick={() => { 
+								vscode.postMessage({ type: "showMcpView", tab: "installed"})
 								setIsVisible(false)
 							}}>
 							<span className="codicon codicon-gear text-[10px]"></span>

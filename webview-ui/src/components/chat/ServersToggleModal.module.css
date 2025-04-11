@@ -34,10 +34,12 @@
 }
 
 .mcpServersTitle {
-  margin: 0;
-  margin-bottom: 2.5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2.5rem
 }
 
-.serversToggleListContainer {
-  margin-bottom: -10px;
+.mcpServersTitle h3 {
+  margin: 0;
 }
