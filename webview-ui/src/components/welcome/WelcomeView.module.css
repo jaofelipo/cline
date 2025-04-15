@@ -1,0 +1,48 @@
+.container {
+  position: fixed;
+  inset: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.content {
+  height: 100%;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  overflow: auto;
+}
+
+.logoWrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.logo {
+  width: 4rem;
+  height: 4rem;
+}
+
+.descriptionText {
+  color: var(--vscode-descriptionForeground);
+}
+
+.primaryButton {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.secondaryButton {
+  margin-top: 0.625rem;
+  width: 100%;
+}
+
+.apiOptionsWrapper {
+  margin-top: 1.125rem;
+}
+
+.submitButton {
+  margin-top: 0.1875rem;
+}

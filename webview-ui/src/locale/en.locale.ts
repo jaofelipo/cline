@@ -59,5 +59,15 @@ export const en:Locale = {
     },
     ServersToggleModal: {
       mcpServers: "MCP Servers",
-    }
+    },
+    WelcomeView:{
+        welcomeTitle: "Hi, I'm Cline",
+        welcomeText: "I can do all kinds of tasks thanks to the latest breakthroughs in <url>https://www.anthropic.com/claude/sonnet<label>Claude 3.7 Sonnet's<url> " + 
+                    "agentic coding capabilities and access to tools that let me create & edit files, explore complex projects, use the browser, and execute terminal " + 
+                    "commands <i>(with your permission, of course)</i>. I can even use MCP to create new tools and extend my own capabilities.",
+        descriptionText: "Sign up for an account to get started for free, or use an API key that provides access to models like Claude 3.7 Sonnet.",
+        getStartedText: "Get Started for Free",
+        useApiKeyButton: "Use your own API key",
+        letsGoButton: "Let's go!"        
+    },
 }

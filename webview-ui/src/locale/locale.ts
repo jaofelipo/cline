@@ -55,4 +55,14 @@ export interface Locale {
     ServersToggleModal:{
       mcpServers: string
     },
+    WelcomeView:{
+      welcomeTitle:string,
+      welcomeText:string,
+      descriptionText:string,
+      getStartedText:string,
+      useApiKeyButton: string,
+      letsGoButton:string
+    }
 }
+
+
