@@ -84,9 +84,7 @@ const ServersToggleModal: React.FC = () => {
 						</VSCodeButton>
 					</div>
 
-					<div style={{ marginBottom: -10 }}>
-						<ServersToggleList servers={mcpServers} isExpandable={false} hasTrashIcon={false} listGap="small" />
-					</div>
+					<ServersToggleList servers={mcpServers} isExpandable={false} hasTrashIcon={false} listGap="small" />
 				</div>
 			)}
 		</div>
