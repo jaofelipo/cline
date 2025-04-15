@@ -170,7 +170,7 @@ const RequestyModelPicker: React.FC<RequestyModelPickerProps> = ({ isPopup }) =>
 						onKeyDown={handleKeyDown}
 						style={{
 							width: "100%",
-							zIndex: REQUESTY_MODEL_PICKER_Z_INDEX,
+							zIndex: 1000,
 							position: "relative",
 						}}>
 						{searchTerm && (
@@ -259,9 +259,6 @@ const DropdownWrapper = styled.div`
 	position: relative;
 	width: 100%;
 `
-
-export const REQUESTY_MODEL_PICKER_Z_INDEX = 1_000
-
 const DropdownList = styled.div`
 	position: absolute;
 	top: calc(100% - 3px);
@@ -271,7 +268,7 @@ const DropdownList = styled.div`
 	overflow-y: auto;
 	background-color: var(--vscode-dropdown-background);
 	border: 1px solid var(--vscode-list-activeSelectionBackground);
-	z-index: ${REQUESTY_MODEL_PICKER_Z_INDEX - 1};
+	z-index: 999;
 	border-bottom-left-radius: 3px;
 	border-bottom-right-radius: 3px;
 `

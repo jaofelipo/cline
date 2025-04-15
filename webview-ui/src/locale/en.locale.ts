@@ -70,4 +70,23 @@ export const en:Locale = {
         useApiKeyButton: "Use your own API key",
         letsGoButton: "Let's go!"        
     },
+    SettingView:{
+        settingsTitle: "Settings",
+        doneButton: "Done",
+        customInstructionsPlaceholder: 'e.g. "Run unit tests at the end", "Use TypeScript with async/await", "Speak in Spanish"',
+        customInstructionsLabel: "Custom Instructions",
+        customInstructionsDescription: "These instructions are added to the end of the system prompt sent with every request.",
+        separateModels: "Use different models for Plan and Act modes",
+        planActSeparateModels: "Switching between Plan and Act mode will persist the API and model used in the previous mode. This may be " +
+                                "helpful e.g. when using a strong reasoning model to architect a plan for a cheaper coding model to act on.",
+        allowsTelemetry: "Allow anonymous error and usage reporting",
+        advancedLabel: "Advanced Settings",
+        helpImprove: "Help improve Cline by sending anonymous usage data and error reports. No code, prompts, or personal information are ever sent. See our " +
+            "<url>https://docs.cline.bot/more-info/telemetry<label>telemetry overview<url> and <url>https://cline.bot/privacy<label>privacy policy<url> for more details" 
+        ,
+        debugSection: "Debug",
+        resetStateButton: "Reset State",
+        resetStateDescription: "This will reset all global state and secret storage in the extension.",
+        feedbackMessage: "If you have any questions or feedback, feel free to open an issue at <url>https://github.com/cline/cline<label>Cline Github Project"
+      },    
 }

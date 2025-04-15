@@ -9,14 +9,13 @@ import { TabButton } from "../mcp/configuration/McpConfigurationView"
 import { useEvent } from "react-use"
 import { ExtensionMessage } from "@shared/ExtensionMessage"
 import BrowserSettingsSection from "./BrowserSettingsSection"
+import { TextWithLink } from "../basic/TextWithLink"
+import styles from './SettingsView.module.css'
 
 const { IS_DEV } = process.env
 
-type SettingsViewProps = {
-	onDone: () => void
-}
+const SettingsView = ({ onDone }: {onDone: () => void}) => {
 
-const SettingsView = ({ onDone }: SettingsViewProps) => {
 	const {
 		apiConfiguration,
 		version,
@@ -26,9 +25,14 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 		telemetrySetting,
 		setTelemetrySetting,
 		chatSettings,
+		locale: { SettingView: labels },
 		planActSeparateModelsSetting,
 		setPlanActSeparateModelsSetting,
 	} = useExtensionState()
+
+
+	
+
 	const [apiErrorMessage, setApiErrorMessage] = useState<string | undefined>(undefined)
 	const [modelIdErrorMessage, setModelIdErrorMessage] = useState<string | undefined>(undefined)
 	const [pendingTabChange, setPendingTabChange] = useState<"plan" | "act" | null>(null)
@@ -41,13 +45,8 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 		// setModelIdErrorMessage(modelIdValidationResult)
 
 		let apiConfigurationToSubmit = apiConfiguration
-		if (!apiValidationResult && !modelIdValidationResult) 
-		{ 
-			/* empty */ 
-
-		} else {
+		if (apiValidationResult || modelIdValidationResult) 
 			apiConfigurationToSubmit = undefined
-		}
 
 		vscode.postMessage({
 			type: "updateSettings",
@@ -57,28 +56,15 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 			apiConfiguration: apiConfigurationToSubmit,
 		})
 
-		if (!withoutDone) {
+		if (!withoutDone) 
 			onDone()
-		}
+		
 	}
 
 	useEffect(() => {
 		setApiErrorMessage(undefined)
 		setModelIdErrorMessage(undefined)
 	}, [apiConfiguration])
-
-	// validate as soon as the component is mounted
-	/*
-    useEffect will use stale values of variables if they are not included in the dependency array. 
-    so trying to use useEffect with a dependency array of only one value for example will use any 
-    other variables' old values. In most cases you don't want this, and should opt to use react-use 
-    hooks.
-    
-        // uses someVar and anotherVar
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [someVar])
-	If we only want to run code once on mount we can use react-use's useEffectOnce or useMount
-    */
 
 	const handleMessage = useCallback(
 		(event: MessageEvent) => {
@@ -106,9 +92,7 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 								element.style.transition = "background-color 0.5s ease"
 								element.style.backgroundColor = "var(--vscode-textPreformat-background)"
 
-								setTimeout(() => {
-									element.style.backgroundColor = "transparent"
-								}, 1200)
+								setTimeout(() => element.style.backgroundColor = "transparent", 1200)
 							}
 						}
 					}, 300)
@@ -125,24 +109,26 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 	}
 
 	const handleTabChange = (tab: "plan" | "act") => {
-		if (tab === chatSettings.mode) {
-			return
+		if (tab !== chatSettings.mode) 
+		{
+			setPendingTabChange(tab)
+			handleSubmit(true)
 		}
-		setPendingTabChange(tab)
-		handleSubmit(true)
 	}
 
 	return (
-		<div className="fixed top-0 left-0 right-0 bottom-0 pt-[10px] pr-0 pb-0 pl-5 flex flex-col overflow-hidden">
-			<div className="flex justify-between items-center mb-[13px] pr-[17px]">
-				<h3 className="text-[var(--vscode-foreground)] m-0">Settings</h3>
-				<VSCodeButton onClick={() => handleSubmit(false)}>Done</VSCodeButton>
+		<div className={styles.settingsViewContainer}>
+			<div className={styles.header}>
+				<h3 className={styles.title}
+					children={labels.settingsTitle}/>
+				<VSCodeButton onClick={() => handleSubmit(false)}
+					children={labels.doneButton}/>
 			</div>
-			<div className="grow overflow-y-scroll pr-2 flex flex-col">
+			<div className={styles.contentScrollable}>
 				{/* Tabs container */}
 				{planActSeparateModelsSetting ? (
-					<div className="border border-solid border-[var(--vscode-panel-border)] rounded-md p-[10px] mb-5 bg-[var(--vscode-panel-background)]">
-						<div className="flex gap-[1px] mb-[10px] -mt-2 border-0 border-b border-solid border-[var(--vscode-panel-border)]">
+					<div className={styles.planActTabsContainer}>
+						<div className={styles.tabButtonsContainer}>
 							<TabButton isActive={chatSettings.mode === "plan"} onClick={() => handleTabChange("plan")}>
 								Plan Mode
 							</TabButton>
@@ -152,7 +138,7 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 						</div>
 
 						{/* Content container */}
-						<div className="-mb-3">
+						<div className={styles.apiOptionsContentContainer}>
 							<ApiOptions
 								key={chatSettings.mode}
 								showModelOptions={true}
@@ -170,93 +156,75 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 					/>
 				)}
 
-				<div className="mb-[5px]">
+				<div className={styles.settingSection}>
 					<VSCodeTextArea
 						value={customInstructions ?? ""}
-						className="w-full"
+						className={styles.customInstructionsTextArea}
 						resize="vertical"
 						rows={4}
-						placeholder={'e.g. "Run unit tests at the end", "Use TypeScript with async/await", "Speak in Spanish"'}
+						placeholder={labels.customInstructionsPlaceholder}
 						onInput={(e: any) => setCustomInstructions(e.target?.value ?? "")}>
-						<span className="font-medium">Custom Instructions</span>
+
+						<span className={styles.customInstructionsLabel}
+							children={labels.customInstructionsLabel}/>
 					</VSCodeTextArea>
-					<p className="text-xs mt-[5px] text-[var(--vscode-descriptionForeground)]">
-						These instructions are added to the end of the system prompt sent with every request.
-					</p>
+					<p className={styles.descriptionText}
+						children={labels.customInstructionsDescription}/>
 				</div>
 
-				<div className="mb-[5px]">
+				<div className={styles.settingSection}>
 					<VSCodeCheckbox
-						className="mb-[5px]"
+						className={styles.checkbox}
 						checked={planActSeparateModelsSetting}
 						onChange={(e: any) => {
 							const checked = e.target.checked === true
 							setPlanActSeparateModelsSetting(checked)
-						}}>
-						Use different models for Plan and Act modes
-					</VSCodeCheckbox>
-					<p className="text-xs mt-[5px] text-[var(--vscode-descriptionForeground)]">
-						Switching between Plan and Act mode will persist the API and model used in the previous mode. This may be
-						helpful e.g. when using a strong reasoning model to architect a plan for a cheaper coding model to act on.
-					</p>
+						}}
+						children={labels.separateModels}/>
+					<p className={styles.descriptionText}
+						children={labels.planActSeparateModels}/>
 				</div>
 
-				<div className="mb-[5px]">
+				<div className={styles.settingSection}>
 					<VSCodeCheckbox
-						className="mb-[5px]"
+						className={styles.checkbox}
 						checked={telemetrySetting === "enabled"}
 						onChange={(e: any) => {
 							const checked = e.target.checked === true
 							setTelemetrySetting(checked ? "enabled" : "disabled")
-						}}>
-						Allow anonymous error and usage reporting
-					</VSCodeCheckbox>
-					<p className="text-xs mt-[5px] text-[var(--vscode-descriptionForeground)]">
-						Help improve Cline by sending anonymous usage data and error reports. No code, prompts, or personal
-						information are ever sent. See our{" "}
-						<VSCodeLink href="https://docs.cline.bot/more-info/telemetry" className="text-inherit">
-							telemetry overview
-						</VSCodeLink>{" "}
-						and{" "}
-						<VSCodeLink href="https://cline.bot/privacy" className="text-inherit">
-							privacy policy
-						</VSCodeLink>{" "}
-						for more details.
-					</p>
+						}}
+						children={labels.allowsTelemetry}/>
+					<p className={styles.descriptionText}
+						children={labels.helpImprove}/>
 				</div>
 
 				{/* Browser Settings Section */}
 				<BrowserSettingsSection />
 
-				<div className="mt-auto pr-2 flex justify-center">
+				<div className={styles.advancedSettingsButtonContainer}>
 					<SettingsButton
 						onClick={() => vscode.postMessage({ type: "openExtensionSettings" })}
-						className="mt-0 mr-0 mb-4 ml-0">
+						className={styles.advancedSettingsButton}>
 						<i className="codicon codicon-settings-gear" />
-						Advanced Settings
+						{labels.advancedLabel}
 					</SettingsButton>
 				</div>
 
 				{IS_DEV && (
 					<>
-						<div className="mt-[10px] mb-1">Debug</div>
-						<VSCodeButton onClick={handleResetState} className="mt-[5px] w-auto">
-							Reset State
-						</VSCodeButton>
-						<p className="text-xs mt-[5px] text-[var(--vscode-descriptionForeground)]">
-							This will reset all global state and secret storage in the extension.
-						</p>
+						<div className={styles.debugSectionLabel} children={labels.debugSection}/>
+						<VSCodeButton onClick={handleResetState}
+							className={styles.resetStateButton}
+							children={labels.resetStateButton}/>
+						<p className={styles.descriptionText}
+						 	children={labels.resetStateDescription}/>
 					</>
 				)}
 
-				<div className="text-center text-[var(--vscode-descriptionForeground)] text-xs leading-[1.2] px-0 py-0 pr-2 pb-[15px] mt-auto">
-					<p className="break-words m-0 p-0">
-						If you have any questions or feedback, feel free to open an issue at{" "}
-						<VSCodeLink href="https://github.com/cline/cline" className="inline">
-							https://github.com/cline/cline
-						</VSCodeLink>
-					</p>
-					<p className="italic mt-[10px] mb-0 p-0">v{version}</p>
+				<div className={styles.footer}>
+					<p className={styles.feedbackMessage}
+						children={TextWithLink(labels.feedbackMessage)}/>
+					<p className={styles.versionText}>v{version}</p>
 				</div>
 			</div>
 		</div>

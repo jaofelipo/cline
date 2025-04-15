@@ -62,7 +62,23 @@ export interface Locale {
       getStartedText:string,
       useApiKeyButton: string,
       letsGoButton:string
-    }
+    },
+    SettingView:{
+      settingsTitle:string
+      doneButton:string
+      customInstructionsPlaceholder:string
+      customInstructionsLabel:string
+      customInstructionsDescription:string
+      separateModels:string,
+      planActSeparateModels:string,
+      allowsTelemetry: string,
+      advancedLabel:string,
+      helpImprove:string,
+      debugSection:string
+      resetStateButton:string
+      resetStateDescription:string
+      feedbackMessage:string
+    },
 }
 
 

@@ -1,0 +1,123 @@
+.settingsViewContainer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding-top: 10px;
+  padding-right: 0;
+  padding-bottom: 0;
+  padding-left: 20px; /* pl-5 */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 13px;
+  padding-right: 17px;
+}
+
+.title {
+  color: var(--vscode-foreground);
+  margin: 0;
+}
+
+.contentScrollable {
+  flex-grow: 1;
+  overflow-y: scroll;
+  padding-right: 0.5rem;    
+  display: flex;
+  flex-direction: column;
+}
+
+.planActTabsContainer {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 20px; 
+  background-color: var(--vscode-panel-background);
+}
+
+.tabButtonsContainer {
+  display: flex;
+  gap: 1px;
+  margin-bottom: 10px;
+  margin-top: -8px; /* -mt-2 */
+  border-bottom: 1px solid var(--vscode-panel-border);
+  border-top: 0;
+  border-left: 0;
+  border-right: 0;
+}
+
+.apiOptionsContentContainer {
+  margin-bottom: -12px;     
+}
+
+.settingSection {
+  margin-bottom: 5px;
+}
+
+.customInstructionsTextArea {
+  width: 100%;
+}
+
+.customInstructionsLabel {
+  font-weight: 500; /* font-medium */
+}
+
+.descriptionText {
+  font-size: 0.75rem; /* text-xs */
+  margin-top: 5px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.checkbox {
+  margin-bottom: 5px;
+}
+
+.advancedSettingsButtonContainer {
+  margin-top: auto;
+  padding-right: 8px; /* pr-2 */
+  display: flex;
+  justify-content: center;
+}
+
+.advancedSettingsButton {
+  margin: 0 0 1rem 0; 
+}
+
+.debugSectionLabel {
+  margin-top: 10px;
+  margin-bottom: 4px; /* mb-1 */
+}
+
+.resetStateButton {
+  margin-top: 5px;
+  width: auto;
+}
+
+.footer {
+  text-align: center;
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.75rem; /* text-xs */
+  line-height: 1.2;
+  padding: 0 8px 15px 0; /* px-0 py-0 pr-2 pb-[15px] */
+  margin-top: auto;
+}
+
+.feedbackMessage {
+  word-break: break-words;
+  margin: 0;
+  padding: 0;
+}
+
+.versionText {
+  font-style: italic;
+  margin-top: 10px;
+  margin-bottom: 0;
+  padding: 0;
+}
