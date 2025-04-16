@@ -73,15 +73,17 @@ export const ptBr:Locale = {
     SettingView:{
         settingsTitle: "Configurações",
         doneButton: "Concluído",
+        planMode: "Plan Mode",
+        actMode: "Act Mode",  
         customInstructionsPlaceholder: 'ex. "Execute testes unitários no final", "Use TypeScript com async/await", "Fale em português"',
         customInstructionsLabel: "Instruções Personalizadas",
         customInstructionsDescription: "Essas instruções são adicionadas ao final do prompt do sistema enviado com cada solicitação.",
         separateModels: "Use different models for Plan and Act modes",
-        planActSeparateModels: "Switching between Plan and Act mode will persist the API and model used in the previous mode. This may be " +
+        separateModelsDescription: "Switching between Plan and Act mode will persist the API and model used in the previous mode. This may be " +
                                 "helpful e.g. when using a strong reasoning model to architect a plan for a cheaper coding model to act on.",
         allowsTelemetry: "Allow anonymous error and usage reporting",
         advancedLabel: "Advanced Settings",
-        helpImprove: "Help improve Cline by sending anonymous usage data and error reports. No code, prompts, or personal information are ever sent. See our " +
+        allowsTelemetryDescription: "Help improve Cline by sending anonymous usage data and error reports. No code, prompts, or personal information are ever sent. See our " +
             "<url>https://docs.cline.bot/more-info/telemetry<label>telemetry overview<url> and <url>https://cline.bot/privacy<label>privacy policy<url> for more details" 
         ,
         debugSection: "Depuração",

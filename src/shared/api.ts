@@ -92,7 +92,24 @@ interface PriceTier {
 	price: number // Price per million tokens for this tier.
 }
 
+
+export interface ApiDetails {
+	name:string,
+	id:string,
+	apiKeyURL?:string,
+	llmModels?: readonly ModelInfo[],
+	llmAlter?: readonly ModelInfo[],
+	regions?:string[],
+	apiKeyName:SecretKeys,
+	message?:string,
+	requiredFields:(keyof ApiConfiguration)[]
+}
+
+export const secretKeys = ["apiKey", "openRouterApiKey", "awsAccessKey", "awsSecretKey", "awsSessionToken", "openAiApiKey", "geminiApiKey", "openAiNativeApiKey", "deepSeekApiKey"] as const
+export type SecretKeys = typeof secretKeys[number];
+
 export interface ModelInfo {
+	name?:string,
 	maxTokens?: number
 	contextWindow?: number
 	supportsImages?: boolean
@@ -1600,4 +1617,4 @@ export const requestyDefaultModelInfo: ModelInfo = {
 	cacheWritesPrice: 3.75,
 	cacheReadsPrice: 0.3,
 	description: "Anthropic's most intelligent model. Highest level of intelligence and capability.",
-}
+}	

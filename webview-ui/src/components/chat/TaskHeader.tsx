@@ -8,8 +8,8 @@ import { formatLargeNumber } from "@/utils/format"
 import { formatSize } from "@/utils/format"
 import { vscode } from "@/utils/vscode"
 import Thumbnails from "@/components/common/Thumbnails"
-import { normalizeApiConfiguration } from "@/components/settings/ApiOptions"
 import styles from "./TaskHeader.module.css"
+import { normalizeApiConfiguration } from "@/utils/apiConfigurationUtils"
 
 interface TaskHeaderProps {
 	task: ClineMessage

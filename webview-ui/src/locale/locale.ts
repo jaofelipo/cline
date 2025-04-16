@@ -66,14 +66,16 @@ export interface Locale {
     SettingView:{
       settingsTitle:string
       doneButton:string
+      planMode:string,
+      actMode:string,
       customInstructionsPlaceholder:string
       customInstructionsLabel:string
       customInstructionsDescription:string
       separateModels:string,
-      planActSeparateModels:string,
+      separateModelsDescription:string,
       allowsTelemetry: string,
       advancedLabel:string,
-      helpImprove:string,
+      allowsTelemetryDescription:string,
       debugSection:string
       resetStateButton:string
       resetStateDescription:string

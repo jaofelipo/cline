@@ -176,4 +176,5 @@ vscode-dropdown::part(listbox) {
 
 :root {
 	--global-background: var(--vscode-editor-background, var(--vscode-sideBar-background, rgb(30, 30, 30)));
+	--global-plan-mode-color: var(--vscode-inputValidation-warningBorder);
   }

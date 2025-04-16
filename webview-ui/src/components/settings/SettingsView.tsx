@@ -1,5 +1,5 @@
 import { VSCodeButton, VSCodeCheckbox, VSCodeLink, VSCodeTextArea } from "@vscode/webview-ui-toolkit/react"
-import { memo, useCallback, useEffect, useState } from "react"
+import { Key, memo, useCallback, useEffect, useState } from "react"
 import { useExtensionState } from "@/context/ExtensionStateContext"
 import { validateApiConfiguration, validateModelId } from "@/utils/validate"
 import { vscode } from "@/utils/vscode"
@@ -116,6 +116,8 @@ const SettingsView = ({ onDone }: {onDone: () => void}) => {
 		}
 	}
 
+	const setTelemetry = (checked:boolean) => setTelemetrySetting(checked ? "enabled" : "disabled")
+
 	return (
 		<div className={styles.settingsViewContainer}>
 			<div className={styles.header}>
@@ -129,31 +131,22 @@ const SettingsView = ({ onDone }: {onDone: () => void}) => {
 				{planActSeparateModelsSetting ? (
 					<div className={styles.planActTabsContainer}>
 						<div className={styles.tabButtonsContainer}>
-							<TabButton isActive={chatSettings.mode === "plan"} onClick={() => handleTabChange("plan")}>
-								Plan Mode
-							</TabButton>
-							<TabButton isActive={chatSettings.mode === "act"} onClick={() => handleTabChange("act")}>
-								Act Mode
-							</TabButton>
+							<TabButton isActive={chatSettings.mode === "plan"} 
+								onClick={() => handleTabChange("plan")} 
+								children={labels.planMode}/>
+							<TabButton isActive={chatSettings.mode === "act"} 
+								onClick={() => handleTabChange("act")}
+								children={labels.actMode}/>
 						</div>
 
 						{/* Content container */}
 						<div className={styles.apiOptionsContentContainer}>
-							<ApiOptions
-								key={chatSettings.mode}
-								showModelOptions={true}
-								apiErrorMessage={apiErrorMessage}
-								modelIdErrorMessage={modelIdErrorMessage}
-							/>
+							{renderAPIOptions(chatSettings.mode, apiErrorMessage, modelIdErrorMessage)}
 						</div>
 					</div>
-				) : (
-					<ApiOptions
-						key={"single"}
-						showModelOptions={true}
-						apiErrorMessage={apiErrorMessage}
-						modelIdErrorMessage={modelIdErrorMessage}
-					/>
+				) : 
+				(
+					 renderAPIOptions("single", apiErrorMessage, modelIdErrorMessage)
 				)}
 
 				<div className={styles.settingSection}>
@@ -172,34 +165,11 @@ const SettingsView = ({ onDone }: {onDone: () => void}) => {
 						children={labels.customInstructionsDescription}/>
 				</div>
 
-				<div className={styles.settingSection}>
-					<VSCodeCheckbox
-						className={styles.checkbox}
-						checked={planActSeparateModelsSetting}
-						onChange={(e: any) => {
-							const checked = e.target.checked === true
-							setPlanActSeparateModelsSetting(checked)
-						}}
-						children={labels.separateModels}/>
-					<p className={styles.descriptionText}
-						children={labels.planActSeparateModels}/>
-				</div>
+				{ renderCheckBox(planActSeparateModelsSetting, setPlanActSeparateModelsSetting, labels.separateModels, labels.separateModelsDescription) }
 
-				<div className={styles.settingSection}>
-					<VSCodeCheckbox
-						className={styles.checkbox}
-						checked={telemetrySetting === "enabled"}
-						onChange={(e: any) => {
-							const checked = e.target.checked === true
-							setTelemetrySetting(checked ? "enabled" : "disabled")
-						}}
-						children={labels.allowsTelemetry}/>
-					<p className={styles.descriptionText}
-						children={labels.helpImprove}/>
-				</div>
+				{ renderCheckBox(telemetrySetting === "enabled", setTelemetry, labels.allowsTelemetry, labels.allowsTelemetryDescription) }
 
-				{/* Browser Settings Section */}
-				<BrowserSettingsSection />
+				<BrowserSettingsSection /> {/* Browser Settings Section */}
 
 				<div className={styles.advancedSettingsButtonContainer}>
 					<SettingsButton
@@ -232,3 +202,31 @@ const SettingsView = ({ onDone }: {onDone: () => void}) => {
 }
 
 export default memo(SettingsView)
+
+
+function renderCheckBox(checked:boolean, setChecked:(value:boolean) => void, label:string, description:string)
+{
+	return (
+		<div className={styles.settingSection}>
+					<VSCodeCheckbox
+						className={styles.checkbox}
+						checked={checked}
+						onChange={(e: any) => setChecked( e.target.checked === true )}
+						children={label}/>
+					
+					<p className={styles.descriptionText}
+						children={description}/>
+				</div>
+	)
+}
+
+function renderAPIOptions(key?:Key, apiErrorMessage?:string, modelIdErrorMessage?:string)
+{
+	return (
+			<ApiOptions
+				key={key}
+				showModelOptions={true}
+				apiErrorMessage={apiErrorMessage}
+				modelIdErrorMessage={modelIdErrorMessage}/>
+	)
+}

@@ -7,9 +7,10 @@ import styled from "styled-components"
 import { requestyDefaultModelId } from "../../../../src/shared/api"
 import { useExtensionState } from "../../context/ExtensionStateContext"
 import { vscode } from "../../utils/vscode"
-import { ModelInfoView, normalizeApiConfiguration } from "./ApiOptions"
+import { ModelInfoView } from "./ApiOptions"
 import ThinkingBudgetSlider from "./ThinkingBudgetSlider"
 import { highlight } from "@/utils/fuseSearchUtils"
+import { normalizeApiConfiguration } from "@/utils/apiConfigurationUtils"
 
 export interface RequestyModelPickerProps {
 	isPopup?: boolean
