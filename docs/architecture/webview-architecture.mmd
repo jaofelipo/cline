@@ -1,0 +1,60 @@
+graph TB
+    subgraph Webview UI
+        WebviewApp["React App<br/>webview-ui/src/App.tsx"]
+        ExtStateContext["ExtensionStateContext<br/>webview-ui/src/context/ExtensionStateContext.tsx"]
+        ReactComponents["React Components"]
+        ClineTools["Cline Tools"]
+        ChatView["ChatView<br/>webview-ui/src/components/chat/ChatView.tsx"]
+        SettingsPanel["Settings Panel"]
+        TaskHistoryPanel["Task History Panel"]
+    end
+
+    WebviewApp --> ExtStateContext
+    ExtStateContext --> ReactComponents
+    ReactComponents --> ChatView
+    ReactComponents --> SettingsPanel
+    ReactComponents --> TaskHistoryPanel
+    WebviewApp --> ClineTools
+
+    subgraph ChatViewComponents
+        ChatView --> ChatRow
+        ChatView --> ChatTextArea
+        ChatView --> TaskHeader
+        ChatView --> Announcement
+        ChatView --> HistoryPreview
+        ChatView --> AutoApproveMenu
+        ChatView --> ScrollToBottomButton
+        ChatView --> McpResponseDisplay
+
+        subgraph ChatRowComponents
+            ChatRow --> Markdown
+            ChatRow --> CodeAccordian
+            ChatRow --> Thumbnails
+            ChatRow --> CheckpointControls
+            ChatRow --> McpToolRow
+            ChatRow --> McpResourceRow
+            ChatRow --> CreditLimitError
+            ChatRow --> OptionsButtons
+            ChatRow --> TaskFeedbackButtons
+            ChatRow --> NewTaskPreview
+            ChatRow --> ProgressIndicator
+        end
+
+        subgraph CodeAccordianComponents
+            CodeAccordian --> CodeBlock["CodeBlock<br/>webview-ui/src/components/common/CodeBlock.tsx"]
+            CodeBlock --> StyledMarkdown["StyledMarkdown<br/>(styled component)"]
+        end
+
+        subgraph MarkdownComponents
+            Markdown --> MarkdownBlock
+        end
+
+        Virtuoso["Virtuoso<br/>(Message List)"]
+        ChatRow["ChatRow<br/>(Individual Message)"]
+        BrowserSessionRow["BrowserSessionRow<br/>(Group of Messages)"]
+        ChatView --> Virtuoso
+        Virtuoso --> ChatRow
+        Virtuoso --> BrowserSessionRow
+    end
+
+    style ExtStateContext fill:#bbf,stroke:#333,stroke-width:2px

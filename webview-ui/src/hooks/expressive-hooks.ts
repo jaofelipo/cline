@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/rules-of-hooks */
 import React from "react";
 
 declare global 
@@ -12,7 +11,6 @@ declare global
 
 if (!Function.prototype.useCallback) 
 {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   Function.prototype.useCallback = function <T extends Function>(this: T, deps: React.DependencyList): T 
   {
     return React.useCallback(this, deps) as T;

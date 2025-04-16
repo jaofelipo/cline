@@ -117,12 +117,10 @@ const CodeBlock = memo(({ source, forceWrap = false }: CodeBlockProps) => {
 			() => {
 				return (tree) => {
 					visit(tree, "code", (node: any) => {
-						if (!node.lang) {
+						if (!node.lang) 
 							node.lang = "javascript"
-						} else if (node.lang.includes(".")) {
-							// if the language is a file, get the extension
-							node.lang = node.lang.split(".").slice(-1)[0]
-						}
+						else if (node.lang.includes(".")) 
+							node.lang = node.lang.split(".").slice(-1)[0] // if the language is a file, get the extension
 					})
 				}
 			},
