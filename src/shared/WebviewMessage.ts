@@ -13,6 +13,7 @@ export interface WebviewMessage {
 		| "apiConfiguration"
 		| "webviewDidLaunch"
 		| "newTask"
+		| "novaTarefa"
 		| "askResponse"
 		| "clearTask"
 		| "didShowAnnouncement"
