@@ -25,10 +25,12 @@ export const OptionsButtons = ({
 	options,
 	selected,
 	isActive,
+	inputValue,
 }: {
 	options?: string[]
 	selected?: string
 	isActive?: boolean
+	inputValue?: string
 }) => {
 	if (!options?.length) return null
 
@@ -54,7 +56,7 @@ export const OptionsButtons = ({
 						}
 						vscode.postMessage({
 							type: "optionsResponse",
-							text: option,
+							text: option + (inputValue ? `: ${inputValue?.trim()}` : ""),
 						})
 					}}>
 					{option}

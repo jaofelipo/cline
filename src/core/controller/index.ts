@@ -40,12 +40,16 @@ import {
 	getAllExtensionState,
 	getGlobalState,
 	getSecret,
+	getWorkspaceState,
 	resetExtensionState,
 	storeSecret,
 	updateApiConfiguration,
 	updateGlobalState,
+	updateWorkspaceState,
 } from "../storage/state"
-import { Task } from "../task"
+import { Task, cwd } from "../task"
+import { ClineRulesToggles } from "../../shared/cline-rules"
+import { refreshClineRulesToggles } from "../context/instructions/user-instructions/cline-rules"
 
 /*
 https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default/weather-webview/src/providers/WeatherViewProvider.ts
@@ -259,6 +263,13 @@ export class Controller {
 					telemetryService.updateTelemetryState(isOptedIn)
 				})
 				break
+			case "showChatView": {
+				this.postMessageToWebview({
+					type: "action",
+					action: "chatButtonClicked",
+				})
+				break
+			}
 			case "newTask":
 				// Code that should run in response to the hello message command
 				//vscode.window.showInformationMessage(message.text!)
@@ -474,6 +485,10 @@ export class Controller {
 				const openAiModels = await this.getOpenAiModels(apiConfiguration.openAiBaseUrl, apiConfiguration.openAiApiKey)
 				this.postMessageToWebview({ type: "openAiModels", openAiModels })
 				break
+			case "refreshClineRules":
+				await refreshClineRulesToggles(this.context, cwd)
+				await this.postStateToWebview()
+				break
 			case "openImage":
 				openImage(message.text!)
 				break
@@ -501,7 +516,7 @@ export class Controller {
 				break
 			}
 			case "checkpointRestore": {
-				await this.cancelTask() // we cannot alter message history say if the task is active, as it could be in the middle of editing a file or running a command, which expect the ask to be responded to rather than being superceded by a new message eg add deleted_api_reqs
+				await this.cancelTask() // we cannot alter message history say if the task is active, as it could be in the middle of editing a file or running a command, which expect the ask to be responded to rather than being superseded by a new message eg add deleted_api_reqs
 				// cancel task waits for any open editor to be reverted and starts a new cline instance
 				if (message.number) {
 					// wait for messages to be loaded
@@ -648,6 +663,30 @@ export class Controller {
 					} else {
 						console.error(`Failed to toggle auto-approve tools for server ${message.serverName}:`, error)
 					}
+				}
+				break
+			}
+			case "toggleClineRule": {
+				const { isGlobal, rulePath, enabled } = message
+				if (rulePath && typeof enabled === "boolean" && typeof isGlobal === "boolean") {
+					if (isGlobal) {
+						const toggles =
+							((await getGlobalState(this.context, "globalClineRulesToggles")) as ClineRulesToggles) || {}
+						toggles[rulePath] = enabled
+						await updateGlobalState(this.context, "globalClineRulesToggles", toggles)
+					} else {
+						const toggles =
+							((await getWorkspaceState(this.context, "localClineRulesToggles")) as ClineRulesToggles) || {}
+						toggles[rulePath] = enabled
+						await updateWorkspaceState(this.context, "localClineRulesToggles", toggles)
+					}
+					await this.postStateToWebview()
+				} else {
+					console.error("toggleClineRule: Missing or invalid parameters", {
+						rulePath,
+						isGlobal: typeof isGlobal === "boolean" ? isGlobal : `Invalid: ${typeof isGlobal}`,
+						enabled: typeof enabled === "boolean" ? enabled : `Invalid: ${typeof enabled}`,
+					})
 				}
 				break
 			}
@@ -1737,7 +1776,7 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			}
 		}
 		// if we tried to get a task that doesn't exist, remove it from state
-		// FIXME: this seems to happen sometimes when the json file doesnt save to disk for some reason
+		// FIXME: this seems to happen sometimes when the json file doesn't save to disk for some reason
 		await this.deleteTaskFromState(id)
 		throw new Error("Task not found")
 	}
@@ -1869,7 +1908,11 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			mcpMarketplaceEnabled,
 			telemetrySetting,
 			planActSeparateModelsSetting,
+			globalClineRulesToggles,
 		} = await getAllExtensionState(this.context)
+
+		const localClineRulesToggles =
+			((await getWorkspaceState(this.context, "localClineRulesToggles")) as ClineRulesToggles) || {}
 
 		return {
 			version: this.context.extension?.packageJSON?.version ?? "",
@@ -1893,6 +1936,8 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			telemetrySetting,
 			planActSeparateModelsSetting,
 			vscMachineId: vscode.env.machineId,
+			globalClineRulesToggles: globalClineRulesToggles || {},
+			localClineRulesToggles: localClineRulesToggles || {},
 		}
 	}
 
@@ -1914,7 +1959,7 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 	// conversation history to send in API requests
 
 	/*
-	It seems that some API messages do not comply with vscode state requirements. Either the Anthropic library is manipulating these values somehow in the backend in a way thats creating cyclic references, or the API returns a function or a Symbol as part of the message content.
+	It seems that some API messages do not comply with vscode state requirements. Either the Anthropic library is manipulating these values somehow in the backend in a way that's creating cyclic references, or the API returns a function or a Symbol as part of the message content.
 	VSCode docs about state: "The value must be JSON-stringifyable ... value — A value. MUST not contain cyclic references."
 	For now we'll store the conversation history in memory, and if we need to store in state directly we'd need to do a manual conversion to ensure proper json stringification.
 	*/

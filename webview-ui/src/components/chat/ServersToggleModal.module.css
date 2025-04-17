@@ -42,4 +42,6 @@
 
 .mcpServersTitle h3 {
   margin: 0;
+  font-size: 1rem;    /* Equivalente a text-base (16px na maioria dos navegadores) */
+  font-weight: 600;   /* Equivalente a font-semibold */
 }
