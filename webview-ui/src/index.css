@@ -174,7 +174,14 @@ vscode-dropdown::part(listbox) {
 	box-shadow: 0 0 0 0.5px color-mix(in srgb, var(--vscode-badge-foreground) 30%, transparent);
 }
 
+.slash-command-match-textarea-highlight {
+	background-color: color-mix(in srgb, var(--vscode-focusBorder) 30%, transparent);
+	border-radius: 3px;
+	box-shadow: 0 0 0 0.5px color-mix(in srgb, var(--vscode-focusBorder) 30%, transparent);
+	color: transparent;
+}
+
 :root {
 	--global-background: var(--vscode-editor-background, var(--vscode-sideBar-background, rgb(30, 30, 30)));
 	--global-plan-mode-color: var(--vscode-inputValidation-warningBorder);
-  }
+}
