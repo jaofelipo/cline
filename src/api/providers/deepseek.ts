@@ -3,7 +3,7 @@ import OpenAI from "openai"
 import { withRetry } from "../retry"
 import { ApiHandler } from "../"
 import { ApiHandlerOptions, DeepSeekModelId, ModelInfo, deepSeekDefaultModelId, deepSeekModels } from "../../shared/api"
-import { calculateApiCostOpenAI } from "../../utils/cost"
+import { calculateApiCost } from "../../utils/cost"
 import { convertToOpenAiMessages } from "../transform/openai-format"
 import { ApiStream } from "../transform/stream"
 import { convertToR1Format } from "../transform/r1-format"
@@ -36,18 +36,18 @@ export class DeepSeekHandler implements ApiHandler {
 		}
 		const deepUsage = usage as DeepSeekUsage
 
-		const inputTokens = deepUsage?.prompt_tokens || 0 // sum of cache hits and misses
-		const outputTokens = deepUsage?.completion_tokens || 0
-		const cacheReadTokens = deepUsage?.prompt_cache_hit_tokens || 0
-		const cacheWriteTokens = deepUsage?.prompt_cache_miss_tokens || 0
-		const totalCost = calculateApiCostOpenAI(info, inputTokens, outputTokens, cacheWriteTokens, cacheReadTokens)
-		const nonCachedInputTokens = Math.max(0, inputTokens - cacheReadTokens - cacheWriteTokens) // this will always be 0
+		const tokensIn = deepUsage?.prompt_tokens || 0 // sum of cache hits and misses
+		const tokensOut = deepUsage?.completion_tokens || 0
+		const cacheReads = deepUsage?.prompt_cache_hit_tokens || 0
+		const cacheWrites = deepUsage?.prompt_cache_miss_tokens || 0
+		const totalCost = calculateApiCost(info, {tokensIn, tokensOut, cacheWrites, cacheReads}, true)
+		const nonCachedInputTokens = Math.max(0, tokensIn - cacheReads - cacheWrites) // this will always be 0
 		yield {
 			type: "usage",
 			inputTokens: nonCachedInputTokens,
-			outputTokens: outputTokens,
-			cacheWriteTokens: cacheWriteTokens,
-			cacheReadTokens: cacheReadTokens,
+			outputTokens: tokensOut,
+			cacheWriteTokens: cacheWrites,
+			cacheReadTokens: cacheReads,
 			totalCost: totalCost,
 		}
 	}

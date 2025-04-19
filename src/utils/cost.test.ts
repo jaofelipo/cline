@@ -1,6 +1,6 @@
 import { describe, it } from "mocha"
 import "should"
-import { calculateApiCostAnthropic, calculateApiCostOpenAI } from "./cost"
+import { calculateApiCost } from "./cost"
 import { ModelInfo } from "../shared/api"
 
 describe("Cost Utilities", () => {
@@ -12,7 +12,7 @@ describe("Cost Utilities", () => {
 				outputPrice: 15.0, // $15 per million tokens
 			}
 
-			const cost = calculateApiCostAnthropic(modelInfo, 1000, 500)
+			const cost = calculateApiCost(modelInfo, {tokensIn:1000, tokensOut:500}, false)
 			// Input: (3.0 / 1_000_000) * 1000 = 0.003
 			// Output: (15.0 / 1_000_000) * 500 = 0.0075
 			// Total: 0.003 + 0.0075 = 0.0105
@@ -25,7 +25,7 @@ describe("Cost Utilities", () => {
 				// No prices specified
 			}
 
-			const cost = calculateApiCostAnthropic(modelInfo, 1000, 500)
+			const cost = calculateApiCost(modelInfo, {tokensIn:1000, tokensOut:500}, false)
 			cost.should.equal(0)
 		})
 
@@ -42,7 +42,7 @@ describe("Cost Utilities", () => {
 				cacheReadsPrice: 0.3,
 			}
 
-			const cost = calculateApiCostAnthropic(modelInfo, 2000, 1000, 1500, 500)
+			const cost = calculateApiCost(modelInfo, {tokensIn:2000, tokensOut:1000, cacheWrites:1500, cacheReads:500}, false)
 			// Cache writes: (3.75 / 1_000_000) * 1500 = 0.005625
 			// Cache reads: (0.3 / 1_000_000) * 500 = 0.00015
 			// Input: (3.0 / 1_000_000) * 2000 = 0.006
@@ -60,7 +60,7 @@ describe("Cost Utilities", () => {
 				cacheReadsPrice: 0.3,
 			}
 
-			const cost = calculateApiCostAnthropic(modelInfo, 0, 0, 0, 0)
+			const cost = calculateApiCost(modelInfo, {tokensIn:0, tokensOut:0, cacheWrites:0, cacheReads:0}, false)
 			cost.should.equal(0)
 		})
 	})
@@ -73,7 +73,7 @@ describe("Cost Utilities", () => {
 				outputPrice: 15.0, // $15 per million tokens
 			}
 
-			const cost = calculateApiCostOpenAI(modelInfo, 1000, 500)
+			const cost = calculateApiCost(modelInfo, {tokensIn:1000, tokensOut:500}, true)
 			// Input: (3.0 / 1_000_000) * 1000 = 0.003
 			// Output: (15.0 / 1_000_000) * 500 = 0.0075
 			// Total: 0.003 + 0.0075 = 0.0105
@@ -86,7 +86,7 @@ describe("Cost Utilities", () => {
 				// No prices specified
 			}
 
-			const cost = calculateApiCostOpenAI(modelInfo, 1000, 500)
+			const cost = calculateApiCost(modelInfo, {tokensIn:1000, tokensOut:500}, true)
 			cost.should.equal(0)
 		})
 
@@ -103,7 +103,7 @@ describe("Cost Utilities", () => {
 				cacheReadsPrice: 0.3,
 			}
 
-			const cost = calculateApiCostOpenAI(modelInfo, 2100, 1000, 1500, 500)
+			const cost = calculateApiCost(modelInfo, {tokensIn:2100, tokensOut:1000, cacheWrites:1500, cacheReads:500}, true)
 			// Cache writes: (3.75 / 1_000_000) * 1500 = 0.005625
 			// Cache reads: (0.3 / 1_000_000) * 500 = 0.00015
 			// Input: (3.0 / 1_000_000) * (2100 - 1500 - 500) = 0.0003
@@ -121,7 +121,7 @@ describe("Cost Utilities", () => {
 				cacheReadsPrice: 0.3,
 			}
 
-			const cost = calculateApiCostOpenAI(modelInfo, 0, 0, 0, 0)
+			const cost = calculateApiCost(modelInfo, {tokensIn:0, tokensOut:0, cacheWrites:0, cacheReads:0}, true)
 			cost.should.equal(0)
 		})
 	})

@@ -4,7 +4,7 @@ import { withRetry } from "../retry"
 import { ApiHandler } from "../"
 import { convertToR1Format } from "../transform/r1-format"
 import { ApiHandlerOptions, bedrockDefaultModelId, BedrockModelId, bedrockModels, ModelInfo } from "../../shared/api"
-import { calculateApiCostOpenAI } from "../../utils/cost"
+import { calculateApiCost } from "../../utils/cost"
 import { ApiStream } from "../transform/stream"
 import { fromNodeProviderChain } from "@aws-sdk/credential-providers"
 import {
@@ -331,7 +331,7 @@ export class AwsBedrockHandler implements ApiHandler {
 						// Report usage on first chunk
 						if (isFirstChunk) {
 							isFirstChunk = false
-							const totalCost = calculateApiCostOpenAI(model.info, inputTokenEstimate, 0, 0, 0)
+							const totalCost = calculateApiCost(model.info, {tokensIn:inputTokenEstimate, tokensOut:0}, true)
 							yield {
 								type: "usage",
 								inputTokens: inputTokenEstimate,
@@ -355,7 +355,7 @@ export class AwsBedrockHandler implements ApiHandler {
 								}
 
 								if (accumulatedTokens >= TOKEN_REPORT_THRESHOLD) {
-									const totalCost = calculateApiCostOpenAI(model.info, 0, accumulatedTokens, 0, 0)
+									const totalCost = calculateApiCost(model.info, {tokensIn: 0, tokensOut: accumulatedTokens}, true)
 									yield {
 										type: "usage",
 										inputTokens: 0,
@@ -378,7 +378,7 @@ export class AwsBedrockHandler implements ApiHandler {
 							}
 							// Report aggregated token usage only when threshold is reached
 							if (accumulatedTokens >= TOKEN_REPORT_THRESHOLD) {
-								const totalCost = calculateApiCostOpenAI(model.info, 0, accumulatedTokens, 0, 0)
+								const totalCost = calculateApiCost(model.info, {tokensIn: 0, tokensOut: accumulatedTokens}, true)
 								yield {
 									type: "usage",
 									inputTokens: 0,
@@ -401,7 +401,7 @@ export class AwsBedrockHandler implements ApiHandler {
 
 			// Report any remaining accumulated tokens at the end of the stream
 			if (accumulatedTokens > 0) {
-				const totalCost = calculateApiCostOpenAI(model.info, 0, accumulatedTokens, 0, 0)
+				const totalCost = calculateApiCost(model.info, {tokensIn: 0, tokensOut: accumulatedTokens}, true)
 				yield {
 					type: "usage",
 					inputTokens: 0,
@@ -411,7 +411,7 @@ export class AwsBedrockHandler implements ApiHandler {
 			}
 
 			// Add final total cost calculation that includes both input and output tokens
-			const finalTotalCost = calculateApiCostOpenAI(model.info, inputTokenEstimate, outputTokens, 0, 0)
+			const finalTotalCost = calculateApiCost(model.info, {tokensIn: inputTokenEstimate, tokensOut: outputTokens}, true)
 			yield {
 				type: "usage",
 				inputTokens: inputTokenEstimate,
@@ -519,7 +519,7 @@ export class AwsBedrockHandler implements ApiHandler {
 							type: "usage",
 							inputTokens,
 							outputTokens,
-							totalCost: calculateApiCostOpenAI(model.info, inputTokens, outputTokens, 0, 0),
+							totalCost: calculateApiCost(model.info, {tokensIn: inputTokens, tokensOut: outputTokens}, true),
 						}
 						hasReportedInputTokens = true
 					}

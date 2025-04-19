@@ -276,10 +276,16 @@ export interface ClineApiReqInfo {
 	cacheWrites?: number
 	cacheReads?: number
 	cost?: number
-	cancelReason?: ClineApiReqCancelReason
+	failedReason?: boolean //undefined -> not failed, true -> streaming failed, false -> user cancelled
 	streamingFailedMessage?: string
 }
 
-export type ClineApiReqCancelReason = "streaming_failed" | "user_cancelled"
+export interface ApiMetrics {
+	tokensIn: number
+	tokensOut: number
+	cacheWrites?: number
+	cacheReads?: number
+	cost?: number
+}
 
 export const COMPLETION_RESULT_CHANGES_FLAG = "HAS_CHANGES"

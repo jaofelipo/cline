@@ -10,7 +10,7 @@ import {
 	openAiNativeModels,
 } from "../../shared/api"
 import { convertToOpenAiMessages } from "../transform/openai-format"
-import { calculateApiCostOpenAI } from "../../utils/cost"
+import { calculateApiCost } from "../../utils/cost"
 import { ApiStream } from "../transform/stream"
 import type { ChatCompletionReasoningEffort } from "openai/resources/chat/completions"
 
@@ -26,18 +26,18 @@ export class OpenAiNativeHandler implements ApiHandler {
 	}
 
 	private async *yieldUsage(info: ModelInfo, usage: OpenAI.Completions.CompletionUsage | undefined): ApiStream {
-		const inputTokens = usage?.prompt_tokens || 0 // sum of cache hits and misses
-		const outputTokens = usage?.completion_tokens || 0
-		const cacheReadTokens = usage?.prompt_tokens_details?.cached_tokens || 0
-		const cacheWriteTokens = 0
-		const totalCost = calculateApiCostOpenAI(info, inputTokens, outputTokens, cacheWriteTokens, cacheReadTokens)
-		const nonCachedInputTokens = Math.max(0, inputTokens - cacheReadTokens - cacheWriteTokens)
+		const tokensIn = usage?.prompt_tokens || 0 // sum of cache hits and misses
+		const tokensOut = usage?.completion_tokens || 0
+		const cacheReads = usage?.prompt_tokens_details?.cached_tokens || 0
+		const cacheWrites = 0
+		const totalCost = calculateApiCost(info, {tokensIn, tokensOut, cacheWrites, cacheReads}, true)
+		const nonCachedInputTokens = Math.max(0, tokensIn - cacheReads - cacheWrites)
 		yield {
 			type: "usage",
 			inputTokens: nonCachedInputTokens,
-			outputTokens: outputTokens,
-			cacheWriteTokens: cacheWriteTokens,
-			cacheReadTokens: cacheReadTokens,
+			outputTokens: tokensOut,
+			cacheWriteTokens: cacheWrites,
+			cacheReadTokens: cacheReads,
 			totalCost: totalCost,
 		}
 	}

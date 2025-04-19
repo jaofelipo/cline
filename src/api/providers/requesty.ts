@@ -4,7 +4,7 @@ import { ApiHandlerOptions, ModelInfo, requestyDefaultModelId, requestyDefaultMo
 import { ApiHandler } from "../index"
 import { withRetry } from "../retry"
 import { convertToOpenAiMessages } from "../transform/openai-format"
-import { calculateApiCostOpenAI } from "../../utils/cost"
+import { calculateApiCost } from "../../utils/cost"
 import { ApiStream } from "../transform/stream"
 
 export class RequestyHandler implements ApiHandler {
@@ -83,18 +83,18 @@ export class RequestyHandler implements ApiHandler {
 
 			if (chunk.usage) {
 				const usage = chunk.usage as RequestyUsage
-				const inputTokens = usage.prompt_tokens || 0
-				const outputTokens = usage.completion_tokens || 0
-				const cacheWriteTokens = usage.prompt_tokens_details?.caching_tokens || undefined
-				const cacheReadTokens = usage.prompt_tokens_details?.cached_tokens || undefined
-				const totalCost = calculateApiCostOpenAI(model.info, inputTokens, outputTokens, cacheWriteTokens, cacheReadTokens)
+				const tokensIn = usage.prompt_tokens || 0
+				const tokensOut = usage.completion_tokens || 0
+				const cacheWrites = usage.prompt_tokens_details?.caching_tokens || undefined
+				const cacheReads = usage.prompt_tokens_details?.cached_tokens || undefined
+				const totalCost = calculateApiCost(model.info, {tokensIn, tokensOut, cacheWrites, cacheReads}, true)
 
 				yield {
 					type: "usage",
-					inputTokens: inputTokens,
-					outputTokens: outputTokens,
-					cacheWriteTokens: cacheWriteTokens,
-					cacheReadTokens: cacheReadTokens,
+					inputTokens: tokensIn,
+					outputTokens: tokensOut,
+					cacheWriteTokens: cacheWrites,
+					cacheReadTokens: cacheReads,
 					totalCost: totalCost,
 				}
 			}

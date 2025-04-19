@@ -1,7 +1,7 @@
 import { Anthropic } from "@anthropic-ai/sdk"
 import * as vscode from "vscode"
 import { ApiHandler, SingleCompletionHandler } from "../"
-import { calculateApiCostAnthropic } from "../../utils/cost"
+import { calculateApiCost } from "../../utils/cost"
 import { ApiStream } from "../transform/stream"
 import { convertToVsCodeLmMessages } from "../transform/vscode-lm-format"
 import { SELECTOR_SEPARATOR, stringifyVsCodeLmModelSelector } from "../../shared/vsCodeSelectorUtils"
@@ -428,7 +428,7 @@ export class VsCodeLmHandler implements ApiHandler, SingleCompletionHandler {
 		this.currentRequestCancellation = new vscode.CancellationTokenSource()
 
 		// Calculate input tokens before starting the stream
-		const totalInputTokens: number = await this.calculateTotalInputTokens(systemPrompt, vsCodeLmMessages)
+		const tokensIn: number = await this.calculateTotalInputTokens(systemPrompt, vsCodeLmMessages)
 
 		// Accumulate the text and count at the end of the stream to reduce token counting overhead.
 		let accumulatedText: string = ""
@@ -514,14 +514,14 @@ export class VsCodeLmHandler implements ApiHandler, SingleCompletionHandler {
 			}
 
 			// Count tokens in the accumulated text after stream completion
-			const totalOutputTokens: number = await this.countTokens(accumulatedText)
+			const tokensOut: number = await this.countTokens(accumulatedText)
 
 			// Report final usage after stream completion
 			yield {
 				type: "usage",
-				inputTokens: totalInputTokens,
-				outputTokens: totalOutputTokens,
-				totalCost: calculateApiCostAnthropic(this.getModel().info, totalInputTokens, totalOutputTokens),
+				inputTokens: tokensIn,
+				outputTokens: tokensOut,
+				totalCost: calculateApiCost(this.getModel().info, {tokensIn, tokensOut}, false),
 			}
 		} catch (error: unknown) {
 			this.ensureCleanState()

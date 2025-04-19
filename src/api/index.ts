@@ -7,7 +7,6 @@ import { VertexHandler } from "./providers/vertex"
 import { OpenAiHandler } from "./providers/openai"
 import { OllamaHandler } from "./providers/ollama"
 import { LmStudioHandler } from "./providers/lmstudio"
-import { GeminiHandler } from "./providers/gemini"
 import { OpenAiNativeHandler } from "./providers/openai-native"
 import { ApiStream, ApiStreamUsageChunk } from "./transform/stream"
 import { DeepSeekHandler } from "./providers/deepseek"
@@ -22,6 +21,7 @@ import { LiteLlmHandler } from "./providers/litellm"
 import { AskSageHandler } from "./providers/asksage"
 import { XAIHandler } from "./providers/xai"
 import { SambanovaHandler } from "./providers/sambanova"
+import { GeminiHandler } from "../umbit/llm/providers/GeminiHandler"
 
 export interface ApiHandler {
 	createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream
@@ -51,7 +51,7 @@ export function buildApiHandler(configuration: ApiConfiguration): ApiHandler {
 		case "lmstudio":
 			return new LmStudioHandler(options)
 		case "gemini":
-			return new GeminiHandler(options)
+			return new GeminiHandler(options.apiModelId ?? "", options.geminiApiKey ?? "")
 		case "openai-native":
 			return new OpenAiNativeHandler(options)
 		case "deepseek":

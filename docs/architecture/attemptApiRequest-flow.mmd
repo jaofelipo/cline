@@ -1,0 +1,31 @@
+graph TB
+    subgraph attemptApiRequest
+        A[pWaitFor MCP servers to connect] --> B{MCP servers connected?}
+        B -- Yes --> C[Check if browser tool is disabled and model supports it]
+        B -- No --> A
+        C --> D[Load system prompt with context]
+        D --> E[Get new context messages and metadata]
+        E --> F[Create API request with system prompt and context]
+        F --> G[Get stream iterator]
+        G --> H{First chunk successful?}
+        H -- Yes --> I[Yield first chunk value]
+        H -- No --> J{OpenRouter or Anthropic?}
+        J -- Yes --> K{Context window error?}
+        K -- Yes --> L[Truncate conversation history]
+        K -- No --> M[Wait 1 second and retry]
+        L --> F
+        M --> F
+        J -- No --> N[Ask user to retry]
+        N --> O{User wants to retry?}
+        O -- Yes --> F
+        O -- No --> P[Throw error]
+        I --> Q[Yield remaining chunks from iterator]
+        Q --> R[Update API request message with usage details]
+        R --> S[Add assistant response to conversation history]
+        S --> T{Model used tool?}
+        T -- Yes --> U[Recursively make Cline requests with tool result]
+        T -- No --> V[Add no tools used message]
+        V --> U
+        P --> End
+        U --> End
+    end
