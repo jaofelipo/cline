@@ -132,10 +132,10 @@ export const ChatRowContent = ({
 	const { mcpServers, mcpMarketplaceCatalog } = useExtensionState()
 	const [seeNewChangesDisabled, setSeeNewChangesDisabled] = useState(false)
 
-	const [cost, apiReqCancelReason, apiReqStreamingFailedMessage] = useMemo(() => {
+	const [cost, apiReqFailedReason, apiReqStreamingFailedMessage] = useMemo(() => {
 		if (message.text != null && message.say === "api_req_started") {
 			const info: ClineApiReqInfo = JSON.parse(message.text)
-			return [info.cost, info.cancelReason, info.streamingFailedMessage]
+			return [info.cost, info.failedReason, info.streamingFailedMessage]
 		}
 		return [undefined, undefined, undefined]
 	}, [message.text, message.say])
@@ -269,12 +269,8 @@ export const ChatRowContent = ({
 					</div>
 				)
 				return [
-					apiReqCancelReason != null ? (
-						apiReqCancelReason === "user_cancelled" ? (
-							getIconSpan("error", cancelledColor)
-						) : (
-							getIconSpan("error", errorColor)
-						)
+					apiReqFailedReason != null ? (
+						getIconSpan("error", (apiReqFailedReason) ? errorColor : cancelledColor)
 					) : cost != null ? (
 						getIconSpan("check", successColor)
 					) : apiRequestFailedMessage ? (
@@ -283,11 +279,12 @@ export const ChatRowContent = ({
 						<ProgressIndicator />
 					),
 					(() => {
-						if (apiReqCancelReason != null) {
-							return apiReqCancelReason === "user_cancelled" ? (
-								<span style={{ color: normalColor, fontWeight: "bold" }}>API Request Cancelled</span>
-							) : (
+						if (apiReqFailedReason != null) 
+							{
+							return apiReqFailedReason ? (
 								<span style={{ color: errorColor, fontWeight: "bold" }}>API Streaming Failed</span>
+							) : (
+								<span style={{ color: normalColor, fontWeight: "bold" }}>API Request Cancelled</span>
 							)
 						}
 
@@ -315,7 +312,7 @@ export const ChatRowContent = ({
 			default:
 				return [null, null]
 		}
-	}, [type, cost, apiRequestFailedMessage, isCommandExecuting, apiReqCancelReason, isMcpServerResponding, message.text])
+	}, [type, cost, apiRequestFailedMessage, isCommandExecuting, apiReqFailedReason, isMcpServerResponding, message.text])
 
 	const headerStyle: React.CSSProperties = {
 		display: "flex",
