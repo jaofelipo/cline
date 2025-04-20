@@ -90,7 +90,6 @@ import { parseSlashCommands } from ".././slash-commands"
 import WorkspaceTracker from "../../integrations/workspace/WorkspaceTracker"
 import { McpHub } from "../../services/mcp/McpHub"
 import { TaskModel } from "../../umbit/task/TaskModel"
-import { BindingUtils } from "../../utils/BindingUtils"
 import { getTranslation } from "../../locale/locale"
 import { updateCost } from "../../utils/llmUtils"
 
@@ -242,15 +241,7 @@ export class Task
 			// New task started
 			telemetryService.captureTaskCreated(this.taskId, apiConfiguration.apiProvider)
 		}
-
-		
 	}
-
-	private async onApiConvesationChanged(data: Anthropic.MessageParam[])
-	{
-		await saveApiConversationHistory(this.getContext(), this.taskId, data)
-	}
-	
 
 	// While a task is ref'd by a controller, it will always have access to the extension context
 	// This error is thrown if the controller derefs the task after e.g., aborting the task
@@ -262,6 +253,16 @@ export class Task
 		return context
 	}
 
+	// Storing task to disk for history
+	private async addToApiConversationHistory(message: Anthropic.MessageParam) {
+		this.taskModel.apiConversationHistory.push(message)
+		await saveApiConversationHistory(this.getContext(), this.taskId, this.taskModel.apiConversationHistory)
+	}
+
+	private async overwriteApiConversationHistory(newHistory: Anthropic.MessageParam[]) {
+		this.taskModel.apiConversationHistory = newHistory
+		await saveApiConversationHistory(this.getContext(), this.taskId, this.taskModel.apiConversationHistory)
+	}
 
 	private async addToClineMessages(message: ClineMessage) {
 		// these values allow us to reconstruct the conversation history at the time this cline message was created
@@ -375,7 +376,7 @@ export class Task
 						0,
 						(message.conversationHistoryIndex || 0) + 2,
 					) // +1 since this index corresponds to the last user message, and another +1 since slice end index is exclusive
-					this.taskModel.apiConversationHistory = newConversationHistory
+					await this.overwriteApiConversationHistory(newConversationHistory)
 
 					// update the context history state
 					await this.contextManager.truncateContextHistory(
@@ -851,10 +852,7 @@ export class Task
 		// conversationHistory (for API) and clineMessages (for webview) need to be in sync
 		// if the extension process were killed, then on restart the clineMessages might not be empty, so we need to set it to [] when we create a new Cline client (otherwise webview would show stale messages from previous session)
 		this.clineMessages = []
-
-		this.taskModel = new TaskModel()
-		BindingUtils.bind(this.taskModel.apiConversationHistory, this.onApiConvesationChanged)
-		
+		this.taskModel.apiConversationHistory = []
 
 		await this.postStateToWebview()
 
@@ -909,9 +907,7 @@ export class Task
 
 		// Now present the cline messages to the user and ask if they want to resume (NOTE: we ran into a bug before where the apiconversationhistory wouldn't be initialized when opening a old task, and it was because we were waiting for resume)
 		// This is important in case the user deletes messages without resuming the task first
-		this.taskModel = new TaskModel()
 		this.taskModel.apiConversationHistory = await getSavedApiConversationHistory(this.getContext(), this.taskId)
-		BindingUtils.bind(this.taskModel.apiConversationHistory, this.onApiConvesationChanged)
 
 		// load the context history state
 		await this.contextManager.initializeContextHistory(await ensureTaskDirectoryExists(this.getContext(), this.taskId))
@@ -1017,7 +1013,7 @@ export class Task
 			newUserContent.push(...formatResponse.imageBlocks(responseImages))
 		}
 
-		this.taskModel.apiConversationHistory = modifiedApiConversationHistory
+		await this.overwriteApiConversationHistory(modifiedApiConversationHistory)
 		await this.initiateTaskLoop(newUserContent)
 	}
 
@@ -3433,7 +3429,7 @@ export class Task
 					}
 					switch (chunk.type) 
 					{
-						case "usage":							
+						case "usage":
 							updateCost(cost, chunk)
 							break
 						case "reasoning":
@@ -3487,7 +3483,7 @@ export class Task
 			{
 				// abandoned happens when extension is no longer waiting for the cline instance to finish aborting (error is thrown here when any function in the for loop throws due to this.abort)
 				await this.abortStream(assistantMessage, startMessage, cost, currentProviderId, error)
-			} 
+			}
 			finally 
 			{
 				this.isStreaming = false
