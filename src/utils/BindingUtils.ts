@@ -10,25 +10,23 @@ export class BindingUtils
         return new Proxy(obj, {
             get(target, prop) 
             {
-                const value = Reflect.get(target, prop);
+                const value = Reflect.get(target, prop)
                 if (Array.isArray(target) && ['push', 'pop', 'shift', 'unshift'].includes(prop as string)) 
                 {
                     return function (...args: any[]) 
                     {
                         const result = (target as any)[prop](...args)
-                        if (BindingUtils.__callbackMap.has(target)) 
-                            BindingUtils.__callbackMap.get(target)!.forEach(cb => cb(target as T/*, parentPath || 'array', prop, result*/))
+                        BindingUtils.invokeCallbacks(target as T)
                         return result
                     }
                 }
-                return (typeof value === 'object' && value !== null) ? BindingUtils.track(value) : value;
+                return (typeof value === 'object' && value !== null) ? BindingUtils.track(value) : value
             },
 
             set(target, prop, value) 
             {
                 const result = Reflect.set(target, prop, value)
-                if (BindingUtils.__callbackMap.has(target)) 
-                    BindingUtils.__callbackMap.get(target)!.forEach(cb => cb(target as T))
+                BindingUtils.invokeCallbacks(target as T)
                 return result;
             },
 
@@ -37,8 +35,7 @@ export class BindingUtils
                 if (prop in target) 
                 {
                     const result = Reflect.deleteProperty(target, prop)
-                    if (BindingUtils.__callbackMap.has(target)) 
-                        BindingUtils.__callbackMap.get(target)!.forEach(cb => cb(target as T))    
+                    BindingUtils.invokeCallbacks(target as T)
                     return result;
                 }
                 return true // Property doesn't exist, so deletion is "successful"
@@ -46,15 +43,20 @@ export class BindingUtils
         })
     }
 
-    static bind<T extends object>(data: T, onChange: (data: T) => void): void 
+    static bind<T extends object, K extends keyof T>(parent: T, target: K, onChange: (data: T[K]) => void | Promise<void>): void
     {
-        if (!BindingUtils.__callbackMap.has(data)) 
-            BindingUtils.__callbackMap.set(data, [])
-        BindingUtils.__callbackMap.get(data)!.push((newData) =>  onChange(newData))
-        Object.assign(data, BindingUtils.track(data))
+        const data = parent[target]
+
+        if (typeof data === 'object' && data !== null) 
+        {
+            if (!BindingUtils.__callbackMap.has(data)) 
+                BindingUtils.__callbackMap.set(data, []);
+            BindingUtils.__callbackMap.get(data)!.push((newData) =>  onChange(newData));
+            parent[target] = BindingUtils.track(data);        
+        }
     }
 
-    static unbind<T extends object>(data: T, onChange: (data: T) => void): void 
+    static unbind<T extends object>(data: T, onChange: (data: T) => void | Promise<void>): void 
     {
         if (BindingUtils.__callbackMap.has(data)) 
         {
@@ -66,4 +68,10 @@ export class BindingUtils
                 BindingUtils.__callbackMap.delete(data)
         }
     }
+    
+    private static async invokeCallbacks(target: object): Promise<void> 
+    {
+        if (BindingUtils.__callbackMap.has(target)) 
+            await Promise.all(BindingUtils.__callbackMap.get(target)!.map(cb => cb(target))).catch()
+    }    
 }
