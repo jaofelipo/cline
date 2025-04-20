@@ -9,9 +9,7 @@ async function cnfc(diffContent: string, originalContent: string, isFinal: boole
 describe("Diff Format Edge Cases", () => {
 	it("should handle missing search block", async () => {
 		const original = "line1\nline2"
-		const diff = `=======
-new content
->>>>>>> REPLACE`
+		const diff = "=======\nnew content\n>>>>>>> REPLACE"
 		const result1 = await cnfc(diff, original, true)
 		expect(result1).to.equal("new content\n")
 		try {

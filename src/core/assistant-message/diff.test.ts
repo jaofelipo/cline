@@ -123,16 +123,7 @@ line4
 		{
 			name: "delete then replace",
 			original: "line1\nline2\nline3\nline4",
-			diff: `<<<<<<< SEARCH
-line1
-=======
->>>>>>> REPLACE
-
-<<<<<<< SEARCH
-line3
-=======
-replaced
->>>>>>> REPLACE`,
+			diff: "<<<<<<< SEARCH\nline1\n=======\n>>>>>>> REPLACE\n\n<<<<<<< SEARCH\nline3\n=======\nreplaced\n>>>>>>> REPLACE",
 			expected: "line2\nreplaced\nline4",
 			isFinal: true,
 		},
