@@ -1,5 +1,5 @@
-import { ModelInfo } from "../shared/api"
-import { ApiMetrics } from "../shared/ExtensionMessage"
+import { ModelInfo } from "@shared/api"
+import { ApiMetrics } from "@shared/ExtensionMessage"
 
 // For OpenAI compliant usage, the input tokens count INCLUDES the cached tokens
 // For Anthropic compliant usage, the input tokens count does NOT include the cached tokens
