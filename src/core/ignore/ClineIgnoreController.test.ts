@@ -21,7 +21,7 @@ suite("ClineIgnoreController", () => {
 			),
 		)
 
-		controller = await ClineIgnoreController.create(tempDir)
+		controller = await ClineIgnoreController.createForTest(tempDir)
 	})
 
 	suiteTeardown(async () => {
@@ -83,7 +83,7 @@ suite("ClineIgnoreController", () => {
 				["*.secret", "private/", "*.tmp", "data-*.json", "temp/*"].join("\n"),
 			)
 
-			controller = await ClineIgnoreController.create(tempDir)
+			controller = await ClineIgnoreController.createForTest(tempDir)
 
 			const results = [
 				controller.validateAccess("data-123.json"), // Should be false (wildcard)
@@ -112,7 +112,7 @@ suite("ClineIgnoreController", () => {
 				].join("\n"),
 			)
 
-			controller = await ClineIgnoreController.create(tempDir)
+			controller = await ClineIgnoreController.createForTest(tempDir)
 			const results = [
 				// Basic negation
 				controller.validateAccess("temp/file.txt"), // Should be false (in temp/)
@@ -150,7 +150,7 @@ suite("ClineIgnoreController", () => {
 				["# Comment line", "*.secret", "private/", "temp.*"].join("\n"),
 			)
 
-			controller = await ClineIgnoreController.create(tempDir)
+			controller = await ClineIgnoreController.createForTest(tempDir)
 
 			const result = controller.validateAccess("test.secret")
 			assert.equal(result, false)
@@ -217,7 +217,7 @@ suite("ClineIgnoreController", () => {
 			await fs.mkdir(emptyDir)
 
 			try {
-				controller = await ClineIgnoreController.create(tempDir)
+				controller = await ClineIgnoreController.createForTest(tempDir)
 				const result = controller.validateAccess("file.txt")
 				assert.equal(result, true)
 			} finally {
@@ -228,7 +228,7 @@ suite("ClineIgnoreController", () => {
 		test("should handle empty .clineignore", async () => {
 			await fs.writeFile(path.join(tempDir, ".clineignore"), "")
 
-			controller = await ClineIgnoreController.create(tempDir)
+			controller = await ClineIgnoreController.createForTest(tempDir)
 			const result = controller.validateAccess("regular-file.txt")
 			assert.equal(result, true)
 		})
@@ -243,7 +243,7 @@ suite("ClineIgnoreController", () => {
 			await fs.writeFile(path.join(tempDir, ".clineignore"), ["!include .gitignore", "secret.txt"].join("\n"))
 
 			// Initialize the controller to load the updated .clineignore
-			controller = await ClineIgnoreController.create(tempDir)
+			controller = await ClineIgnoreController.createForTest(tempDir)
 
 			// "server.log" should be ignored due to the "*.log" pattern from .gitignore
 			assert.equal(controller.validateAccess("server.log"), false)
@@ -260,7 +260,7 @@ suite("ClineIgnoreController", () => {
 			await fs.writeFile(path.join(tempDir, ".clineignore"), ["!include missing-file.txt"].join("\n"))
 
 			// Initialize the controller
-			controller = await ClineIgnoreController.create(tempDir)
+			controller = await ClineIgnoreController.createForTest(tempDir)
 
 			// Validate access to a regular file; it should be allowed because the missing include should not break everything
 			assert.equal(controller.validateAccess("regular-file.txt"), true)
@@ -270,7 +270,7 @@ suite("ClineIgnoreController", () => {
 			// Test with an include directive for a non-existent file alongside a valid pattern ("*.tmp")
 			await fs.writeFile(path.join(tempDir, ".clineignore"), ["!include non-existent.txt", "*.tmp"].join("\n"))
 
-			controller = await ClineIgnoreController.create(tempDir)
+			controller = await ClineIgnoreController.createForTest(tempDir)
 			// "file.tmp" should be ignored because of the "*.tmp" pattern
 			assert.equal(controller.validateAccess("file.tmp"), false)
 			// Files that do not match "*.tmp" should be allowed

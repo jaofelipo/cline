@@ -158,7 +158,7 @@ export class ClineIgnoreController
 		this.disposables = []
 	}
 
-	static async create(cwd:string)
+	static async createForTest(cwd:string)
 	{
 		const result = new ClineIgnoreController(cwd)
 		await result.loadClineIgnore()
