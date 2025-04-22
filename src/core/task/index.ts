@@ -97,7 +97,7 @@ export const cwd =
 	vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? path.join(os.homedir(), "Desktop") // may or may not exist but fs checking existence would immediately ask for permission which would be bad UX, need to come up with a better solution
 
 type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>
-type UserContent = Array<Anthropic.ContentBlockParam>
+
 
 export class Task 
 {
@@ -132,7 +132,7 @@ export class Task
 	private askResponseImages?: string[]
 	private lastMessageTs?: number
 	private consecutiveAutoApprovedRequestsCount: number = 0
-	private consecutiveMistakeCount: number = 0
+	
 	private abort: boolean = false
 	didFinishAbortingStream = false
 	abandoned = false
@@ -191,9 +191,6 @@ export class Task
 		this.reinitExistingTaskFromId = reinitExistingTaskFromId
 		this.cancelTask = cancelTask
 		this.clineIgnoreController = new ClineIgnoreController(cwd)
-		this.clineIgnoreController.initialize().catch((error) => {
-			console.error("Failed to initialize ClineIgnoreController:", error)
-		})
 		this.terminalManager = new TerminalManager()
 		this.urlContentFetcher = new UrlContentFetcher(context)
 		this.browserSession = new BrowserSession(context, browserSettings)
@@ -560,7 +557,8 @@ export class Task
 		relinquishButton()
 	}
 
-	async doesLatestTaskCompletionHaveNewChanges() {
+	async doesLatestTaskCompletionHaveNewChanges() 
+	{
 		const messageIndex = findLastIndex(this.clineMessages, (m) => m.say === "completion_result")
 		const message = this.clineMessages[messageIndex]
 		if (!message) {
@@ -943,7 +941,7 @@ export class Task
 		)
 
 		// Remove the last user message so we can update it with the resume message
-		let modifiedOldUserContent: UserContent // either the last message if its user message, or the user message before the last (assistant) message
+		let modifiedOldUserContent: Anthropic.ContentBlockParam[] // either the last message if its user message, or the user message before the last (assistant) message
 		let modifiedApiConversationHistory: Anthropic.Messages.MessageParam[] // need to remove the last user message to replace with new modified user message
 		if (existingApiConversationHistory.length > 0) {
 			const lastMessage = existingApiConversationHistory[existingApiConversationHistory.length - 1]
@@ -951,7 +949,7 @@ export class Task
 				modifiedApiConversationHistory = [...existingApiConversationHistory]
 				modifiedOldUserContent = []
 			} else if (lastMessage.role === "user") {
-				const existingUserContent: UserContent = Array.isArray(lastMessage.content)
+				const existingUserContent: Anthropic.ContentBlockParam[] = Array.isArray(lastMessage.content)
 					? lastMessage.content
 					: [{ type: "text", text: lastMessage.content }]
 				modifiedApiConversationHistory = existingApiConversationHistory.slice(0, -1)
@@ -963,7 +961,7 @@ export class Task
 			throw new Error("Unexpected: No existing API conversation history")
 		}
 
-		let newUserContent: UserContent = [...modifiedOldUserContent]
+		let newUserContent: Anthropic.ContentBlockParam[] = [...modifiedOldUserContent]
 
 		const agoText = (() => {
 			const timestamp = lastClineMessage?.ts ?? Date.now()
@@ -1017,7 +1015,8 @@ export class Task
 		await this.initiateTaskLoop(newUserContent)
 	}
 
-	private async initiateTaskLoop(userContent: UserContent): Promise<void> {
+	private async initiateTaskLoop(userContent: Anthropic.ContentBlockParam[]): Promise<void> 
+	{
 		let nextUserContent = userContent
 		let includeFileDetails = true
 		while (!this.abort) {
@@ -1043,7 +1042,7 @@ export class Task
 						text: formatResponse.noToolsUsed(),
 					},
 				]
-				this.consecutiveMistakeCount++
+				this.taskModel.consecutiveMistakeCount++
 			}
 		}
 	}
@@ -1860,28 +1859,28 @@ export class Task
 								break
 							} else {
 								if (!relPath) {
-									this.consecutiveMistakeCount++
+									this.taskModel.consecutiveMistakeCount++
 									pushToolResult(await this.sayAndCreateMissingParamError(block.name, "path"))
 									await this.diffViewProvider.reset()
 
 									break
 								}
 								if (block.name === "replace_in_file" && !diff) {
-									this.consecutiveMistakeCount++
+									this.taskModel.consecutiveMistakeCount++
 									pushToolResult(await this.sayAndCreateMissingParamError("replace_in_file", "diff"))
 									await this.diffViewProvider.reset()
 
 									break
 								}
 								if (block.name === "write_to_file" && !content) {
-									this.consecutiveMistakeCount++
+									this.taskModel.consecutiveMistakeCount++
 									pushToolResult(await this.sayAndCreateMissingParamError("write_to_file", "content"))
 									await this.diffViewProvider.reset()
 
 									break
 								}
 
-								this.consecutiveMistakeCount = 0
+								this.taskModel.consecutiveMistakeCount = 0
 
 								// if isEditingFile false, that means we have the full contents of the file already.
 								// it's important to note how this function works, you can't make the assumption that the block.partial conditional will always be called since it may immediately get complete, non-partial data. So this part of the logic will always be called.
@@ -2038,7 +2037,7 @@ export class Task
 								break
 							} else {
 								if (!relPath) {
-									this.consecutiveMistakeCount++
+									this.taskModel.consecutiveMistakeCount++
 									pushToolResult(await this.sayAndCreateMissingParamError("read_file", "path"))
 
 									break
@@ -2052,7 +2051,7 @@ export class Task
 									break
 								}
 
-								this.consecutiveMistakeCount = 0
+								this.taskModel.consecutiveMistakeCount = 0
 								const absolutePath = path.resolve(cwd, relPath)
 								const completeMessage = JSON.stringify({
 									...sharedMessageProps,
@@ -2117,12 +2116,12 @@ export class Task
 								break
 							} else {
 								if (!relDirPath) {
-									this.consecutiveMistakeCount++
+									this.taskModel.consecutiveMistakeCount++
 									pushToolResult(await this.sayAndCreateMissingParamError("list_files", "path"))
 
 									break
 								}
-								this.consecutiveMistakeCount = 0
+								this.taskModel.consecutiveMistakeCount = 0
 
 								const absolutePath = path.resolve(cwd, relDirPath)
 
@@ -2189,13 +2188,13 @@ export class Task
 								break
 							} else {
 								if (!relDirPath) {
-									this.consecutiveMistakeCount++
+									this.taskModel.consecutiveMistakeCount++
 									pushToolResult(await this.sayAndCreateMissingParamError("list_code_definition_names", "path"))
 
 									break
 								}
 
-								this.consecutiveMistakeCount = 0
+								this.taskModel.consecutiveMistakeCount = 0
 
 								const absolutePath = path.resolve(cwd, relDirPath)
 								const result = await parseSourceCodeForDefinitionsTopLevel(
@@ -2262,18 +2261,18 @@ export class Task
 								break
 							} else {
 								if (!relDirPath) {
-									this.consecutiveMistakeCount++
+									this.taskModel.consecutiveMistakeCount++
 									pushToolResult(await this.sayAndCreateMissingParamError("search_files", "path"))
 
 									break
 								}
 								if (!regex) {
-									this.consecutiveMistakeCount++
+									this.taskModel.consecutiveMistakeCount++
 									pushToolResult(await this.sayAndCreateMissingParamError("search_files", "regex"))
 
 									break
 								}
-								this.consecutiveMistakeCount = 0
+								this.taskModel.consecutiveMistakeCount = 0
 
 								const absolutePath = path.resolve(cwd, relDirPath)
 								const results = await regexSearchFiles(
@@ -2325,7 +2324,7 @@ export class Task
 							// checking for action to ensure it is complete and valid
 							if (!block.partial) {
 								// if the block is complete and we don't have a valid action this is a mistake
-								this.consecutiveMistakeCount++
+								this.taskModel.consecutiveMistakeCount++
 								pushToolResult(await this.sayAndCreateMissingParamError("browser_action", "action"))
 								await this.browserSession.closeBrowser()
 							}
@@ -2368,13 +2367,13 @@ export class Task
 								let browserActionResult: BrowserActionResult
 								if (action === "launch") {
 									if (!url) {
-										this.consecutiveMistakeCount++
+										this.taskModel.consecutiveMistakeCount++
 										pushToolResult(await this.sayAndCreateMissingParamError("browser_action", "url"))
 										await this.browserSession.closeBrowser()
 
 										break
 									}
-									this.consecutiveMistakeCount = 0
+									this.taskModel.consecutiveMistakeCount = 0
 
 									if (this.shouldAutoApproveTool(block.name)) {
 										this.removeLastPartialMessageIfExistsWithType("ask", "browser_action_launch")
@@ -2407,7 +2406,7 @@ export class Task
 								} else {
 									if (action === "click") {
 										if (!coordinate) {
-											this.consecutiveMistakeCount++
+											this.taskModel.consecutiveMistakeCount++
 											pushToolResult(
 												await this.sayAndCreateMissingParamError("browser_action", "coordinate"),
 											)
@@ -2418,14 +2417,14 @@ export class Task
 									}
 									if (action === "type") {
 										if (!text) {
-											this.consecutiveMistakeCount++
+											this.taskModel.consecutiveMistakeCount++
 											pushToolResult(await this.sayAndCreateMissingParamError("browser_action", "text"))
 											await this.browserSession.closeBrowser()
 
 											break
 										}
 									}
-									this.consecutiveMistakeCount = 0
+									this.taskModel.consecutiveMistakeCount = 0
 									await this.say(
 										"browser_action",
 										JSON.stringify({
@@ -2513,20 +2512,20 @@ export class Task
 								break
 							} else {
 								if (!command) {
-									this.consecutiveMistakeCount++
+									this.taskModel.consecutiveMistakeCount++
 									pushToolResult(await this.sayAndCreateMissingParamError("execute_command", "command"))
 
 									break
 								}
 								if (!requiresApprovalRaw) {
-									this.consecutiveMistakeCount++
+									this.taskModel.consecutiveMistakeCount++
 									pushToolResult(
 										await this.sayAndCreateMissingParamError("execute_command", "requires_approval"),
 									)
 
 									break
 								}
-								this.consecutiveMistakeCount = 0
+								this.taskModel.consecutiveMistakeCount = 0
 
 								// gemini models tend to use unescaped html entities in commands
 								if (this.api.getModel().id.includes("gemini")) {
@@ -2634,20 +2633,20 @@ export class Task
 								break
 							} else {
 								if (!server_name) {
-									this.consecutiveMistakeCount++
+									this.taskModel.consecutiveMistakeCount++
 									pushToolResult(await this.sayAndCreateMissingParamError("use_mcp_tool", "server_name"))
 
 									break
 								}
 								if (!tool_name) {
-									this.consecutiveMistakeCount++
+									this.taskModel.consecutiveMistakeCount++
 									pushToolResult(await this.sayAndCreateMissingParamError("use_mcp_tool", "tool_name"))
 
 									break
 								}
 								// arguments are optional, but if they are provided they must be valid JSON
 								// if (!mcp_arguments) {
-								// 	this.consecutiveMistakeCount++
+								// 	this.taskModel.consecutiveMistakeCount++
 								// 	pushToolResult(await this.sayAndCreateMissingParamError("use_mcp_tool", "arguments"))
 								// 	break
 								// }
@@ -2656,7 +2655,7 @@ export class Task
 									try {
 										parsedArguments = JSON.parse(mcp_arguments)
 									} catch (error) {
-										this.consecutiveMistakeCount++
+										this.taskModel.consecutiveMistakeCount++
 										await this.say(
 											"error",
 											`Cline tried to use ${tool_name} with an invalid JSON argument. Retrying...`,
@@ -2670,7 +2669,7 @@ export class Task
 										break
 									}
 								}
-								this.consecutiveMistakeCount = 0
+								this.taskModel.consecutiveMistakeCount = 0
 								const completeMessage = JSON.stringify({
 									type: "use_mcp_tool",
 									serverName: server_name,
@@ -2770,18 +2769,18 @@ export class Task
 								break
 							} else {
 								if (!server_name) {
-									this.consecutiveMistakeCount++
+									this.taskModel.consecutiveMistakeCount++
 									pushToolResult(await this.sayAndCreateMissingParamError("access_mcp_resource", "server_name"))
 
 									break
 								}
 								if (!uri) {
-									this.consecutiveMistakeCount++
+									this.taskModel.consecutiveMistakeCount++
 									pushToolResult(await this.sayAndCreateMissingParamError("access_mcp_resource", "uri"))
 
 									break
 								}
-								this.consecutiveMistakeCount = 0
+								this.taskModel.consecutiveMistakeCount = 0
 								const completeMessage = JSON.stringify({
 									type: "access_mcp_resource",
 									serverName: server_name,
@@ -2840,12 +2839,12 @@ export class Task
 								break
 							} else {
 								if (!question) {
-									this.consecutiveMistakeCount++
+									this.taskModel.consecutiveMistakeCount++
 									pushToolResult(await this.sayAndCreateMissingParamError("ask_followup_question", "question"))
 
 									break
 								}
-								this.consecutiveMistakeCount = 0
+								this.taskModel.consecutiveMistakeCount = 0
 
 								if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
 									showSystemNotification({
@@ -2896,11 +2895,11 @@ export class Task
 								break
 							} else {
 								if (!context) {
-									this.consecutiveMistakeCount++
+									this.taskModel.consecutiveMistakeCount++
 									pushToolResult(await this.sayAndCreateMissingParamError("new_task", "context"))
 									break
 								}
-								this.consecutiveMistakeCount = 0
+								this.taskModel.consecutiveMistakeCount = 0
 
 								if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
 									showSystemNotification({
@@ -2946,12 +2945,12 @@ export class Task
 								break
 							} else {
 								if (!response) {
-									this.consecutiveMistakeCount++
+									this.taskModel.consecutiveMistakeCount++
 									pushToolResult(await this.sayAndCreateMissingParamError("plan_mode_respond", "response"))
 									//
 									break
 								}
-								this.consecutiveMistakeCount = 0
+								this.taskModel.consecutiveMistakeCount = 0
 
 								// if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
 								// 	showSystemNotification({
@@ -3034,7 +3033,7 @@ export class Task
 					}
 					case "attempt_completion": {
 						/*
-						this.consecutiveMistakeCount = 0
+						this.taskModel.consecutiveMistakeCount = 0
 						let resultToSend = result
 						if (command) {
 							await this.say("completion_result", resultToSend)
@@ -3107,11 +3106,11 @@ export class Task
 								break
 							} else {
 								if (!result) {
-									this.consecutiveMistakeCount++
+									this.taskModel.consecutiveMistakeCount++
 									pushToolResult(await this.sayAndCreateMissingParamError("attempt_completion", "result"))
 									break
 								}
-								this.consecutiveMistakeCount = 0
+								this.taskModel.consecutiveMistakeCount = 0
 
 								if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
 									showSystemNotification({
@@ -3273,7 +3272,8 @@ export class Task
 		}
 	}
 
-	async recursivelyMakeClineRequests(userContent: UserContent, includeFileDetails: boolean = false): Promise<boolean> {
+	async recursivelyMakeClineRequests(userContent: Anthropic.ContentBlockParam[], includeFileDetails: boolean = false): Promise<boolean> 
+	{
 		if (this.abort) {
 			throw new Error("Cline instance aborted")
 		}
@@ -3286,7 +3286,7 @@ export class Task
 			} catch {}
 		}
 
-		if (this.consecutiveMistakeCount >= 3) {
+		if (this.taskModel.consecutiveMistakeCount >= 3) {
 			if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
 				showSystemNotification({
 					subtitle: "Error",
@@ -3310,7 +3310,7 @@ export class Task
 					],
 				)
 			}
-			this.consecutiveMistakeCount = 0
+			this.taskModel.consecutiveMistakeCount = 0
 		}
 
 		if (
@@ -3553,7 +3553,7 @@ export class Task
 						type: "text",
 						text: formatResponse.noToolsUsed(),
 					})
-					this.consecutiveMistakeCount++
+					this.taskModel.consecutiveMistakeCount++
 				}
 
 				const recDidEndLoop = await this.recursivelyMakeClineRequests(this.userMessageContent)
@@ -3574,7 +3574,7 @@ export class Task
 		}
 	}
 
-	async loadContext(userContent: UserContent, includeFileDetails: boolean = false) {
+	async loadContext(userContent: Anthropic.ContentBlockParam[], includeFileDetails: boolean = false) {
 		return await Promise.all([
 			// This is a temporary solution to dynamically load context mentions from tool results. 
 			// It checks for the presence of tags that indicate that the tool was rejected and feedback was provided 
@@ -3609,213 +3609,8 @@ export class Task
 					return block
 				}),
 			),
-			this.getEnvironmentDetails(includeFileDetails),
+			''//getEnvironmentDetails(this.terminalManager, this.clineIgnoreController, this.fileContextTracker, includeFileDetails),
 		])
-	}
-
-	async getEnvironmentDetails(includeFileDetails: boolean = false) {
-		let details = ""
-
-		// It could be useful for cline to know if the user went from one or no file to another between messages, so we always include this context
-		details += "\n\n# VSCode Visible Files"
-		const visibleFilePaths = vscode.window.visibleTextEditors
-			?.map((editor) => editor.document?.uri?.fsPath)
-			.filter(Boolean)
-			.map((absolutePath) => path.relative(cwd, absolutePath))
-
-		// Filter paths through clineIgnoreController
-		const allowedVisibleFiles = this.clineIgnoreController
-			.filterPaths(visibleFilePaths)
-			.map((p) => p.toPosix())
-			.join("\n")
-
-		if (allowedVisibleFiles) {
-			details += `\n${allowedVisibleFiles}`
-		} else {
-			details += "\n(No visible files)"
-		}
-
-		details += "\n\n# VSCode Open Tabs"
-		const openTabPaths = vscode.window.tabGroups.all
-			.flatMap((group) => group.tabs)
-			.map((tab) => (tab.input as vscode.TabInputText)?.uri?.fsPath)
-			.filter(Boolean)
-			.map((absolutePath) => path.relative(cwd, absolutePath))
-
-		// Filter paths through clineIgnoreController
-		const allowedOpenTabs = this.clineIgnoreController
-			.filterPaths(openTabPaths)
-			.map((p) => p.toPosix())
-			.join("\n")
-
-		if (allowedOpenTabs) {
-			details += `\n${allowedOpenTabs}`
-		} else {
-			details += "\n(No open tabs)"
-		}
-
-		const busyTerminals = this.terminalManager.getTerminals(true)
-		const inactiveTerminals = this.terminalManager.getTerminals(false)
-		// const allTerminals = [...busyTerminals, ...inactiveTerminals]
-
-		if (busyTerminals.length > 0 && this.didEditFile) {
-			//  || this.didEditFile
-			await setTimeoutPromise(300) // delay after saving file to let terminals catch up
-		}
-
-		// let terminalWasBusy = false
-		if (busyTerminals.length > 0) {
-			// wait for terminals to cool down
-			// terminalWasBusy = allTerminals.some((t) => this.terminalManager.isProcessHot(t.id))
-			await pWaitFor(() => busyTerminals.every((t) => !this.terminalManager.isProcessHot(t.id)), {
-				interval: 100,
-				timeout: 15_000,
-			}).catch(() => {})
-		}
-
-		// we want to get diagnostics AFTER terminal cools down for a few reasons: terminal could be scaffolding a project, dev servers (compilers like webpack) will first re-compile and then send diagnostics, etc
-		/*
-		let diagnosticsDetails = ""
-		const diagnostics = await this.diagnosticsMonitor.getCurrentDiagnostics(this.didEditFile || terminalWasBusy) // if cline ran a command (ie npm install) or edited the workspace then wait a bit for updated diagnostics
-		for (const [uri, fileDiagnostics] of diagnostics) {
-			const problems = fileDiagnostics.filter((d) => d.severity === vscode.DiagnosticSeverity.Error)
-			if (problems.length > 0) {
-				diagnosticsDetails += `\n## ${path.relative(cwd, uri.fsPath)}`
-				for (const diagnostic of problems) {
-					// let severity = diagnostic.severity === vscode.DiagnosticSeverity.Error ? "Error" : "Warning"
-					const line = diagnostic.range.start.line + 1 // VSCode lines are 0-indexed
-					const source = diagnostic.source ? `[${diagnostic.source}] ` : ""
-					diagnosticsDetails += `\n- ${source}Line ${line}: ${diagnostic.message}`
-				}
-			}
-		}
-		*/
-		this.didEditFile = false // reset, this lets us know when to wait for saved files to update terminals
-
-		// waiting for updated diagnostics lets terminal output be the most up-to-date possible
-		let terminalDetails = ""
-		if (busyTerminals.length > 0) {
-			// terminals are cool, let's retrieve their output
-			terminalDetails += "\n\n# Actively Running Terminals"
-			for (const busyTerminal of busyTerminals) {
-				terminalDetails += `\n## Original command: \`${busyTerminal.lastCommand}\``
-				const newOutput = this.terminalManager.getUnretrievedOutput(busyTerminal.id)
-				if (newOutput) {
-					terminalDetails += `\n### New Output\n${newOutput}`
-				} else {
-					// details += `\n(Still running, no new output)` // don't want to show this right after running the command
-				}
-			}
-		}
-		// only show inactive terminals if there's output to show
-		if (inactiveTerminals.length > 0) {
-			const inactiveTerminalOutputs = new Map<number, string>()
-			for (const inactiveTerminal of inactiveTerminals) {
-				const newOutput = this.terminalManager.getUnretrievedOutput(inactiveTerminal.id)
-				if (newOutput) {
-					inactiveTerminalOutputs.set(inactiveTerminal.id, newOutput)
-				}
-			}
-			if (inactiveTerminalOutputs.size > 0) {
-				terminalDetails += "\n\n# Inactive Terminals"
-				for (const [terminalId, newOutput] of inactiveTerminalOutputs) {
-					const inactiveTerminal = inactiveTerminals.find((t) => t.id === terminalId)
-					if (inactiveTerminal) {
-						terminalDetails += `\n## ${inactiveTerminal.lastCommand}`
-						terminalDetails += `\n### New Output\n${newOutput}`
-					}
-				}
-			}
-		}
-
-		// details += "\n\n# VSCode Workspace Errors"
-		// if (diagnosticsDetails) {
-		// 	details += diagnosticsDetails
-		// } else {
-		// 	details += "\n(No errors detected)"
-		// }
-
-		if (terminalDetails) {
-			details += terminalDetails
-		}
-
-		// Add recently modified files section
-		const recentlyModifiedFiles = this.fileContextTracker.getAndClearRecentlyModifiedFiles()
-		if (recentlyModifiedFiles.length > 0) {
-			details +=
-				"\n\n# Recently Modified Files\nThese files have been modified since you last accessed them (file was just edited so you may need to re-read it before editing):"
-			for (const filePath of recentlyModifiedFiles) {
-				details += `\n${filePath}`
-			}
-		}
-
-		// Add current time information with timezone
-		const now = new Date()
-		const formatter = new Intl.DateTimeFormat(undefined, {
-			year: "numeric",
-			month: "numeric",
-			day: "numeric",
-			hour: "numeric",
-			minute: "numeric",
-			second: "numeric",
-			hour12: true,
-		})
-		const timeZone = formatter.resolvedOptions().timeZone
-		const timeZoneOffset = -now.getTimezoneOffset() / 60 // Convert to hours and invert sign to match conventional notation
-		const timeZoneOffsetStr = `${timeZoneOffset >= 0 ? "+" : ""}${timeZoneOffset}:00`
-		details += `\n\n# Current Time\n${formatter.format(now)} (${timeZone}, UTC${timeZoneOffsetStr})`
-
-		if (includeFileDetails) {
-			details += `\n\n# Current Working Directory (${cwd.toPosix()}) Files\n`
-			const isDesktop = arePathsEqual(cwd, path.join(os.homedir(), "Desktop"))
-			if (isDesktop) {
-				// don't want to immediately access desktop since it would show permission popup
-				details += "(Desktop files not shown automatically. Use list_files to explore if needed.)"
-			} else {
-				const [files, didHitLimit] = await listFiles(cwd, true, 200)
-				const result = formatResponse.formatFilesList(cwd, files, didHitLimit, this.clineIgnoreController)
-				details += result
-			}
-		}
-
-		// Add context window usage information
-		const { contextWindow, maxAllowedSize } = getContextWindowInfo(this.api)
-
-		// Get the token count from the most recent API request to accurately reflect context management
-		const getTotalTokensFromApiReqMessage = (msg: ClineMessage) => {
-			if (!msg.text) {
-				return 0
-			}
-			try {
-				const { tokensIn, tokensOut, cacheWrites, cacheReads } = JSON.parse(msg.text)
-				return (tokensIn || 0) + (tokensOut || 0) + (cacheWrites || 0) + (cacheReads || 0)
-			} catch (e) {
-				return 0
-			}
-		}
-
-		const modifiedMessages = combineApiRequests(combineCommandSequences(this.clineMessages.slice(1)))
-		const lastApiReqMessage = findLast(modifiedMessages, (msg) => {
-			if (msg.say !== "api_req_started") {
-				return false
-			}
-			return getTotalTokensFromApiReqMessage(msg) > 0
-		})
-
-		const lastApiReqTotalTokens = lastApiReqMessage ? getTotalTokensFromApiReqMessage(lastApiReqMessage) : 0
-		const usagePercentage = Math.round((lastApiReqTotalTokens / contextWindow) * 100)
-
-		details += "\n\n# Context Window Usage"
-		details += `\n${lastApiReqTotalTokens.toLocaleString()} / ${(contextWindow / 1000).toLocaleString()}K tokens used (${usagePercentage}%)`
-
-		details += "\n\n# Current Mode"
-		if (this.chatSettings.mode === "plan") {
-			details += "\nPLAN MODE\n" + formatResponse.planModeInstructions()
-		} else {
-			details += "\nACT MODE"
-		}
-
-		return `<environment_details>\n${details.trim()}\n</environment_details>`
 	}
 }
 

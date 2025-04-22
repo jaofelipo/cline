@@ -27,15 +27,13 @@ Observations:
 - Macos isn't so flexible with mixed separators, whereas windows can handle both. ("Node.js does automatically handle path separators on Windows, converting forward slashes to backslashes as needed. However, on macOS and other Unix-like systems, the path separator is always a forward slash (/), and backslashes are treated as regular characters.")
 */
 
-function toPosixPath(p: string) {
-	// Extended-Length Paths in Windows start with "\\?\" to allow longer paths and bypass usual parsing. If detected, we return the path unmodified to maintain functionality, as altering these paths could break their special syntax.
-	const isExtendedLengthPath = p.startsWith("\\\\?\\")
+export function toPosixPath(path: string) 
+{
+	// Extended-Length Paths in Windows start with "\\?\" to allow longer paths and bypass usual parsing. 
+	// If detected, we return the path unmodified to maintain functionality, as altering these paths could break their special syntax.
+	const isExtendedLengthPath = path.startsWith("\\\\?\\")
 
-	if (isExtendedLengthPath) {
-		return p
-	}
-
-	return p.replace(/\\/g, "/")
+	return (isExtendedLengthPath) ? path : path.replace(/\\/g, "/")
 }
 
 // Declaration merging allows us to add a new method to the String type
