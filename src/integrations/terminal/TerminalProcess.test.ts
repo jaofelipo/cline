@@ -3,7 +3,7 @@ import "should"
 import * as sinon from "sinon"
 import { TerminalProcess } from "./TerminalProcess"
 import * as vscode from "vscode"
-import { TerminalRegistry } from "./TerminalRegistry"
+import { TerminalManager } from "./TerminalManager"
 
 declare module "vscode" {
 	// https://github.com/microsoft/vscode/blob/f0417069c62e20f3667506f4b7e53ca0004b4e3e/src/vscode-dts/vscode.d.ts#L7442
@@ -33,10 +33,10 @@ describe("TerminalProcess (Integration Tests)", () => {
 	let process: TerminalProcess
 	let sandbox: sinon.SinonSandbox
 	let createdTerminals: vscode.Terminal[] = []
+	
 
 	beforeEach(() => {
 		sandbox = sinon.createSandbox({ useFakeTimers: true })
-		process = new TerminalProcess()
 	})
 
 	afterEach(() => {
@@ -53,14 +53,16 @@ describe("TerminalProcess (Integration Tests)", () => {
 		// This test works with or without shell integration
 		it("should create and run a command in a real terminal", async () => {
 			// Create a real VS Code terminal for testing
-			const terminal = TerminalRegistry.createTerminal().terminal
+			const terminal = TerminalManager.createTerminal().terminal
 			createdTerminals.push(terminal)
+
+			process = new TerminalProcess(terminal, "echo test")
 
 			// Spy on emit to verify behavior
 			const emitSpy = sandbox.spy(process, "emit")
 
 			// Run a simple command
-			await process.run(terminal, "echo test")
+			await process.run()
 
 			// Verify that the continue event was emitted
 			;(emitSpy as sinon.SinonSpy).calledWith("continue").should.be.true()
@@ -69,14 +71,16 @@ describe("TerminalProcess (Integration Tests)", () => {
 
 		it("should execute and capture events from a simple command", async () => {
 			// Create a real VS Code terminal
-			const terminal = TerminalRegistry.createTerminal().terminal
+			const terminal = TerminalManager.createTerminal().terminal
 			createdTerminals.push(terminal)
+
+			process = new TerminalProcess(terminal, "echo 'Line 1' && echo 'Line 2'")
 
 			// Spy on emit to verify line events
 			const emitSpy = sandbox.spy(process, "emit")
 
 			// Run a command that produces predictable output
-			await process.run(terminal, "echo 'Line 1' && echo 'Line 2'")
+			await process.run()
 
 			// Check that the events were emitted
 			;(emitSpy as sinon.SinonSpy).calledWith("completed").should.be.true()
@@ -85,14 +89,16 @@ describe("TerminalProcess (Integration Tests)", () => {
 
 		it("should execute a command that lists files", async () => {
 			// Create a real VS Code terminal
-			const terminal = TerminalRegistry.createTerminal().terminal
+			const terminal = TerminalManager.createTerminal().terminal
 			createdTerminals.push(terminal)
+
+			process = new TerminalProcess(terminal, "ls -la")
 
 			// Spy on emit to verify behavior
 			const emitSpy = sandbox.spy(process, "emit")
 
 			// Run a command that lists files
-			await process.run(terminal, "ls -la")
+			await process.run()
 
 			// Verify that the continue event was emitted
 			;(emitSpy as sinon.SinonSpy).calledWith("continue").should.be.true()
@@ -101,8 +107,10 @@ describe("TerminalProcess (Integration Tests)", () => {
 
 		it("should handle a longer running command", async () => {
 			// Create a real terminal
-			const terminal = TerminalRegistry.createTerminal().terminal
+			const terminal = TerminalManager.createTerminal().terminal
 			createdTerminals.push(terminal)
+
+			process = new TerminalProcess(terminal, "sleep 0.5 && echo 'Done sleeping'")
 
 			// Spy on emit to verify behavior
 			const emitSpy = sandbox.spy(process, "emit")
@@ -111,7 +119,7 @@ describe("TerminalProcess (Integration Tests)", () => {
 			sandbox.clock.restore()
 
 			// Run a command that sleeps for a short period
-			await process.run(terminal, "sleep 0.5 && echo 'Done sleeping'")
+			await process.run()
 
 			// Verify that the continue and completed events were emitted
 			;(emitSpy as sinon.SinonSpy).calledWith("continue").should.be.true()
@@ -123,14 +131,16 @@ describe("TerminalProcess (Integration Tests)", () => {
 
 		it("should execute a command with arguments", async () => {
 			// Create a real VS Code terminal
-			const terminal = TerminalRegistry.createTerminal().terminal
+			const terminal = TerminalManager.createTerminal().terminal
 			createdTerminals.push(terminal)
+
+			process = new TerminalProcess(terminal, "echo 'Line 1' 'Line 2'")
 
 			// Spy on emit to verify line events
 			const emitSpy = sandbox.spy(process, "emit")
 
 			// Run a command that produces predictable output
-			await process.run(terminal, "echo 'Line 1' 'Line 2'")
+			await process.run()
 
 			// Check that the events were emitted
 			;(emitSpy as sinon.SinonSpy).calledWith("completed").should.be.true()
@@ -139,14 +149,16 @@ describe("TerminalProcess (Integration Tests)", () => {
 
 		it("should execute a command with quotes", async () => {
 			// Create a real VS Code terminal
-			const terminal = TerminalRegistry.createTerminal().terminal
+			const terminal = TerminalManager.createTerminal().terminal
 			createdTerminals.push(terminal)
+
+			process = new TerminalProcess(terminal, "echo \"Line 1\" && echo 'Line 2'")
 
 			// Spy on emit to verify line events
 			const emitSpy = sandbox.spy(process, "emit")
 
 			// Run a command that produces predictable output
-			await process.run(terminal, "echo \"Line 1\" && echo 'Line 2'")
+			await process.run()
 
 			// Check that the events were emitted
 			;(emitSpy as sinon.SinonSpy).calledWith("completed").should.be.true()
@@ -160,6 +172,8 @@ describe("TerminalProcess (Integration Tests)", () => {
 		const terminal = vscode.window.createTerminal({ name: "Test Terminal" })
 		createdTerminals.push(terminal)
 
+		process = new TerminalProcess(terminal, "test-command")
+
 		// Stub the shellIntegration getter to return undefined for this test
 		sandbox.stub(terminal, "shellIntegration").get(() => undefined)
 
@@ -170,7 +184,7 @@ describe("TerminalProcess (Integration Tests)", () => {
 		const emitSpy = sandbox.spy(process, "emit")
 
 		// Run the command
-		await process.run(terminal, "test-command")
+		await process.run()
 
 		// Check that the correct methods were called and events emitted
 		sendTextStub.calledWith("test-command", true).should.be.true()
@@ -186,7 +200,7 @@ describe("TerminalProcess (Integration Tests)", () => {
 		// We'll mock the terminal run process and TerminalProcess for these tests
 		it("should emit completed and continue events when command finishes", async function () {
 			// Create a terminal to ensure proper interface, but we'll use mocking under the hood
-			const terminal = TerminalRegistry.createTerminal().terminal
+			const terminal = TerminalManager.createTerminal().terminal
 			createdTerminals.push(terminal)
 
 			// Create a mock implementation of executeCommand
@@ -202,11 +216,13 @@ describe("TerminalProcess (Integration Tests)", () => {
 			// Stub terminal.shellIntegration to return our mock
 			sandbox.stub(terminal, "shellIntegration").get(() => mockShellIntegration)
 
+			process = new TerminalProcess(terminal, "echo test")
+
 			// Spy on emit to verify behavior
 			const emitSpy = sandbox.spy(process, "emit")
 
 			// Run the command
-			await process.run(terminal, "echo test")
+			await process.run()
 
 			// Verify the executeCommand was called with the right command
 			mockExecuteCommand.calledWith("echo test").should.be.true()
@@ -221,7 +237,7 @@ describe("TerminalProcess (Integration Tests)", () => {
 	describe("Controlled output tests", () => {
 		it("should emit line events for each line of output", async function () {
 			// Create a terminal
-			const terminal = TerminalRegistry.createTerminal().terminal
+			const terminal = TerminalManager.createTerminal().terminal
 			createdTerminals.push(terminal)
 
 			// Mock the shell integration with controlled output
@@ -234,9 +250,11 @@ describe("TerminalProcess (Integration Tests)", () => {
 				executeCommand: mockExecuteCommand,
 			}))
 
+			process = new TerminalProcess(terminal, "test-command")
+
 			const emitSpy = sandbox.spy(process, "emit")
 
-			await process.run(terminal, "test-command")
+			await process.run()
 
 			// Check that line events were emitted for each line
 			;(emitSpy as sinon.SinonSpy).calledWith("line", "line1").should.be.true()
@@ -246,13 +264,15 @@ describe("TerminalProcess (Integration Tests)", () => {
 
 		it("should properly handle process hot state (e.g. compiling)", async function () {
 			// Create a terminal
-			const terminal = TerminalRegistry.createTerminal().terminal
+			const terminal = TerminalManager.createTerminal().terminal
 			createdTerminals.push(terminal)
 
 			// Mock the shell integration
 			const mockExecuteCommand = sandbox.stub().returns({
 				read: () => createMockStream(["compiling..."]),
 			})
+
+			process = new TerminalProcess(terminal, "build command")
 
 			// Create a mock shell integration object and stub the getter
 			sandbox.stub(terminal, "shellIntegration").get(() => ({
@@ -262,7 +282,7 @@ describe("TerminalProcess (Integration Tests)", () => {
 			// Spy on global setTimeout
 			const setTimeoutSpy = sandbox.spy(global, "setTimeout")
 
-			await process.run(terminal, "build command")
+			await process.run()
 
 			// Move time forward enough to schedule
 			sandbox.clock.tick(100)
@@ -274,8 +294,10 @@ describe("TerminalProcess (Integration Tests)", () => {
 
 		it("should handle standard commands with normal hot timeout", async function () {
 			// Create a terminal
-			const terminal = TerminalRegistry.createTerminal().terminal
+			const terminal = TerminalManager.createTerminal().terminal
 			createdTerminals.push(terminal)
+
+			process = new TerminalProcess(terminal, "standard command")
 
 			// Mock the shell integration
 			const mockExecuteCommand = sandbox.stub().returns({
@@ -289,22 +311,24 @@ describe("TerminalProcess (Integration Tests)", () => {
 
 			const setTimeoutSpy = sandbox.spy(global, "setTimeout")
 
-			await process.run(terminal, "standard command")
+			await process.run()
 			sandbox.clock.tick(100)
 
 			// Expect a short hot timeout (<= 5000)
 			const foundNormalTimeout = setTimeoutSpy.args.filter((args) => args[1] && args[1] <= 5000)
 			foundNormalTimeout.length.should.be.greaterThan(0)
 
+			process = new TerminalProcess(terminal, "another command")
+
 			// Also check that "completed" eventually emits
 			const emitSpy = sandbox.spy(process, "emit")
-			await process.run(terminal, "another command")
+			await process.run()
 			;(emitSpy as sinon.SinonSpy).calledWith("completed").should.be.true()
 		})
 
 		it("should correctly filter command echoes based on current implementation", async function () {
 			// Create a terminal
-			const terminal = TerminalRegistry.createTerminal().terminal
+			const terminal = TerminalManager.createTerminal().terminal
 			createdTerminals.push(terminal)
 
 			// Mock the shell integration
@@ -324,7 +348,9 @@ describe("TerminalProcess (Integration Tests)", () => {
 
 			const emitSpy = sandbox.spy(process, "emit")
 
-			await process.run(terminal, "test-command")
+			process = new TerminalProcess(terminal, "test-command")
+
+			await process.run()
 
 			// Check that "test-command" was filtered out but "test command" was not
 			;(emitSpy as sinon.SinonSpy).calledWith("line", "test command").should.be.true()
@@ -335,7 +361,7 @@ describe("TerminalProcess (Integration Tests)", () => {
 
 		it("should handle npm run commands", async function () {
 			// Create a terminal
-			const terminal = TerminalRegistry.createTerminal().terminal
+			const terminal = TerminalManager.createTerminal().terminal
 			createdTerminals.push(terminal)
 
 			// Mock the shell integration
@@ -348,9 +374,11 @@ describe("TerminalProcess (Integration Tests)", () => {
 				executeCommand: mockExecuteCommand,
 			}))
 
+			process = new TerminalProcess(terminal, "npm run build")
+
 			const emitSpy = sandbox.spy(process, "emit")
 
-			await process.run(terminal, "npm run build")
+			await process.run()
 
 			// The "npm run build" line should be filtered, but the rest should be emitted
 			;(emitSpy as sinon.SinonSpy).calledWith("line", "> project@1.0.0 build").should.be.true()

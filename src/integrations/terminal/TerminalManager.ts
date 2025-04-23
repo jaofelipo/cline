@@ -1,8 +1,6 @@
-import pWaitFor from "p-wait-for"
 import * as vscode from "vscode"
-import { arePathsEqual } from "@utils/path"
-import { mergePromise, TerminalProcess, TerminalProcessResultPromise } from "./TerminalProcess"
-import { TerminalInfo, TerminalRegistry } from "./TerminalRegistry"
+import { arePathsEqual } from "../../utils/path"
+import { TerminalProcess } from "./TerminalProcess"
 
 /*
 TerminalManager:
@@ -89,134 +87,105 @@ declare module "vscode" {
 	}
 }
 
-export class TerminalManager {
-	private terminalIds: Set<number> = new Set()
-	private processes: Map<number, TerminalProcess> = new Map()
+export interface TerminalInfo {
+	terminal: vscode.Terminal
+	busy?: boolean
+	lastCommand?: string
+	id: number
+	process?:TerminalProcess
+}
+
+
+// vscode.window.terminals provides a list of all open terminals, but we dont know they're busy or not
+// To prevent creating too many terminals, we keep track
+export class TerminalManager 
+{
+	private static availableTerminals: TerminalInfo[] = []
+	private static nextTerminalId = 1
+
 	private disposables: vscode.Disposable[] = []
 
-	constructor() {
-		let disposable: vscode.Disposable | undefined
-		try {
-			disposable = (vscode.window as vscode.Window).onDidStartTerminalShellExecution?.(async (e) => {
-				// Creating a read stream here results in a more consistent output. This is most obvious when running the `date` command.
-				e?.execution?.read()
-			})
-		} catch (error) {
-			// console.error("Error setting up onDidEndTerminalShellExecution", error)
+	constructor() 
+	{
+		try 
+		{
+			// read stream here results in a more consistent output. This is most obvious when running the `date` command.
+			let disposable = (vscode.window as vscode.Window).onDidStartTerminalShellExecution?.(async (e) =>  e?.execution?.read()) 
+			if (disposable) 
+				this.disposables.push(disposable)
 		}
-		if (disposable) {
-			this.disposables.push(disposable)
-		}
+		catch (error) {}
 	}
 
-	runCommand(terminalInfo: TerminalInfo, command: string): TerminalProcessResultPromise {
+	prepareCommand(terminalInfo: TerminalInfo, command: string)
+	{
 		terminalInfo.busy = true
 		terminalInfo.lastCommand = command
-		const process = new TerminalProcess()
-		this.processes.set(terminalInfo.id, process)
+		terminalInfo.process = new TerminalProcess(terminalInfo.terminal, command)
 
-		process.once("completed", () => {
-			terminalInfo.busy = false
+		terminalInfo.process.once("completed", () => terminalInfo.busy = false)
+
+		terminalInfo.process.once("no_shell_integration", () => { // if shell integration is not available, remove terminal 
+			terminalInfo.process = undefined 
+			this.removeTerminal(terminalInfo.id) // Remove the terminal so we can't reuse it (in case it's running a long-running process)
 		})
 
-		// if shell integration is not available, remove terminal so it does not get reused as it may be running a long-running process
-		process.once("no_shell_integration", () => {
-			console.log(`no_shell_integration received for terminal ${terminalInfo.id}`)
-			// Remove the terminal so we can't reuse it (in case it's running a long-running process)
-			TerminalRegistry.removeTerminal(terminalInfo.id)
-			this.terminalIds.delete(terminalInfo.id)
-			this.processes.delete(terminalInfo.id)
-		})
-
-		const promise = new Promise<void>((resolve, reject) => {
-			process.once("continue", () => {
-				resolve()
-			})
-			process.once("error", (error) => {
-				console.error(`Error in terminal ${terminalInfo.id}:`, error)
-				reject(error)
-			})
-		})
-
-		// if shell integration is already active, run the command immediately
-		if (terminalInfo.terminal.shellIntegration) {
-			process.waitForShellIntegration = false
-			process.run(terminalInfo.terminal, command)
-		} else {
-			// docs recommend waiting 3s for shell integration to activate
-			pWaitFor(() => terminalInfo.terminal.shellIntegration !== undefined, { timeout: 4000 }).finally(() => {
-				const existingProcess = this.processes.get(terminalInfo.id)
-				if (existingProcess && existingProcess.waitForShellIntegration) {
-					existingProcess.waitForShellIntegration = false
-					existingProcess.run(terminalInfo.terminal, command)
-				}
-			})
-		}
-
-		return mergePromise(process, promise)
+		return terminalInfo.process
 	}
 
-	async getOrCreateTerminal(cwd: string): Promise<TerminalInfo> {
-		const terminals = TerminalRegistry.getAllTerminals()
-
+	async getOrCreateTerminal(cwd: string): Promise<TerminalInfo>  
+	{	
 		// Find available terminal from our pool first (created for this task)
-		const matchingTerminal = terminals.find((t) => {
-			if (t.busy) {
-				return false
+		// check paths are equals because can be changed by user or tool
+		let availableTerminal = TerminalManager.getAllTerminals().find((t) =>  
+			(t.busy) ? false : arePathsEqual(vscode.Uri.file(cwd).fsPath, t.terminal.shellIntegration?.cwd?.fsPath ?? "") 
+		)
+
+		if (!availableTerminal)  // If no matching terminal exists, try to find any non-busy terminal
+		{
+			availableTerminal = TerminalManager.availableTerminals.find((t) => t.busy === false)
+
+			if (availableTerminal)  // If no matching terminal exists, try to find any non-busy terminal
+			{	
+				await availableTerminal.process?.run(`cd "${cwd}"`)
+				return availableTerminal
 			}
-			const terminalCwd = t.terminal.shellIntegration?.cwd // one of cline's commands could have changed the cwd of the terminal
-			if (!terminalCwd) {
-				return false
-			}
-			return arePathsEqual(vscode.Uri.file(cwd).fsPath, terminalCwd.fsPath)
-		})
-		if (matchingTerminal) {
-			this.terminalIds.add(matchingTerminal.id)
-			return matchingTerminal
-		}
+		}		
+		return (availableTerminal) ? availableTerminal : TerminalManager.createTerminal(cwd)
+	}	
 
-		// If no matching terminal exists, try to find any non-busy terminal
-		const availableTerminal = terminals.find((t) => !t.busy)
-		if (availableTerminal) {
-			// Navigate back to the desired directory
-			await this.runCommand(availableTerminal, `cd "${cwd}"`)
-			this.terminalIds.add(availableTerminal.id)
-			return availableTerminal
-		}
-
-		// If all terminals are busy, create a new one
-		const newTerminalInfo = TerminalRegistry.createTerminal(cwd)
-		this.terminalIds.add(newTerminalInfo.id)
-		return newTerminalInfo
+	getTerminals(busy: boolean):TerminalInfo[]
+	{
+		return TerminalManager.availableTerminals.filter((t) => t.busy === busy)
 	}
 
-	getTerminals(busy: boolean): { id: number; lastCommand: string }[] {
-		return Array.from(this.terminalIds)
-			.map((id) => TerminalRegistry.getTerminal(id))
-			.filter((t): t is TerminalInfo => t !== undefined && t.busy === busy)
-			.map((t) => ({ id: t.id, lastCommand: t.lastCommand }))
+	getUnretrievedOutput(terminal:TerminalInfo): string 
+	{
+		return terminal.process?.getUnretrievedOutput() ?? ""
 	}
 
-	getUnretrievedOutput(terminalId: number): string {
-		if (!this.terminalIds.has(terminalId)) {
-			return ""
-		}
-		const process = this.processes.get(terminalId)
-		return process ? process.getUnretrievedOutput() : ""
+	private removeTerminal(id: number) 
+	{
+		TerminalManager.availableTerminals = TerminalManager.availableTerminals.filter((t) => t.id !== id)
 	}
 
-	isProcessHot(terminalId: number): boolean {
-		const process = this.processes.get(terminalId)
-		return process ? process.isHot : false
-	}
-
-	disposeAll() {
-		// for (const info of this.terminals) {
-		// 	//info.terminal.dispose() // dont want to dispose terminals when task is aborted
-		// }
-		this.terminalIds.clear()
-		this.processes.clear()
+	disposeAll() 
+	{
 		this.disposables.forEach((disposable) => disposable.dispose())
 		this.disposables = []
 	}
+
+	static createTerminal(cwd?: string | vscode.Uri | undefined): TerminalInfo 
+	{
+		const terminal = vscode.window.createTerminal({cwd, name: "Cline", iconPath: new vscode.ThemeIcon("robot")})
+		const newInfo: TerminalInfo = {terminal, id: this.nextTerminalId++}
+		this.availableTerminals.push(newInfo)
+		return newInfo
+	}
+
+	static getAllTerminals(): TerminalInfo[] 
+	{
+		this.availableTerminals = this.availableTerminals.filter((t) => t.terminal.exitStatus === undefined ) //undefined while the terminal is active
+		return this.availableTerminals
+	}	
 }

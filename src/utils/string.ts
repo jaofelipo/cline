@@ -20,3 +20,18 @@ export function fixModelHtmlEscaping(text: string): string {
 export function removeInvalidChars(text: string): string {
 	return text.replace(/\uFFFD/g, "")
 }
+
+// Remove like '%', '$', '#', or '>'  at the end of the last line(vsode uses % at the beginning)
+export 	function removeFromLastLine(data:string, regex:RegExp = /[%$#>]\s*$/)
+{
+	const lines = data.trimEnd().split("\n")
+	if (lines.length > 0) 
+		lines[lines.length - 1] = lines[lines.length - 1].replace(regex, "")
+	return lines.join("\n").trimEnd()
+}
+
+export const dateTimeformatter = 
+	new Intl.DateTimeFormat(undefined, {year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric", hour12: true})
+export const dateTimeformatterTimeZone = dateTimeformatter.resolvedOptions().timeZone
+
+

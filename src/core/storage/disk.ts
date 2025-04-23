@@ -141,24 +141,31 @@ export async function saveClineMessages(context: vscode.ExtensionContext, taskId
 	}
 }
 
-export async function getTaskMetadata(context: vscode.ExtensionContext, taskId: string): Promise<TaskMetadata> {
+export async function getTaskMetadata(context: vscode.ExtensionContext, taskId: string): Promise<TaskMetadata> 
+{
 	const filePath = path.join(await ensureTaskDirectoryExists(context, taskId), GlobalFileNames.taskMetadata)
-	try {
-		if (await fileExistsAtPath(filePath)) {
+	try 
+	{
+		if (await fileExistsAtPath(filePath)) 
 			return JSON.parse(await fs.readFile(filePath, "utf8"))
-		}
-	} catch (error) {
+	}
+	catch (error) 
+	{
 		console.error("Failed to read task metadata:", error)
 	}
 	return { files_in_context: [], model_usage: [] }
 }
 
-export async function saveTaskMetadata(context: vscode.ExtensionContext, taskId: string, metadata: TaskMetadata) {
-	try {
+export async function saveTaskMetadata(context: vscode.ExtensionContext, taskId: string, metadata: 	TaskMetadata) 
+{
+	try 
+	{
 		const taskDir = await ensureTaskDirectoryExists(context, taskId)
 		const filePath = path.join(taskDir, GlobalFileNames.taskMetadata)
 		await fs.writeFile(filePath, JSON.stringify(metadata, null, 2))
-	} catch (error) {
+	} 
+	catch (error) 
+	{
 		console.error("Failed to save task metadata:", error)
 	}
 }

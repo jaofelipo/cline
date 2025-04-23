@@ -95,9 +95,12 @@ import { TaskModel } from "@/umbit/task/TaskModel"
 import { getTranslation } from "@/locale/locale"
 import { isInTestMode } from "@/services/test/TestMode"
 import { updateCost } from "@/utils/llmUtils"
+import { getEnvironmentDetails } from "@/utils/EnvironmentDetails"
 
 export const cwd =
 	vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? path.join(os.homedir(), "Desktop") // may or may not exist but fs checking existence would immediately ask for permission which would be bad UX, need to come up with a better solution
+
+export const isDesktop = arePathsEqual(cwd, path.join(os.homedir(), "Desktop"))	
 
 type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>
 
@@ -1230,7 +1233,7 @@ export class Task
 
 		const terminalInfo = await this.terminalManager.getOrCreateTerminal(cwd)
 		terminalInfo.terminal.show() // weird visual bug when creating new terminals (even manually) where there's an empty space at the top.
-		const process = this.terminalManager.runCommand(terminalInfo, command)
+		const process = this.terminalManager.prepareCommand(terminalInfo, command)
 
 		let userFeedback: { text?: string; images?: string[] } | undefined
 		let didContinue = false
@@ -2051,11 +2054,11 @@ export class Task
 								this.didEditFile = true // used to determine if we should wait for busy terminal to update before sending api request
 
 								// Track file edit operation
-								await this.fileContextTracker.trackFileContext(relPath, "cline_edited")
+								await this.fileContextTracker.trackFile(relPath, "cline_edited")
 
 								if (userEdits) {
 									// Track file edit operation
-									await this.fileContextTracker.trackFileContext(relPath, "user_edited")
+									await this.fileContextTracker.trackFile(relPath, "user_edited")
 
 									await this.say(
 										"user_feedback_diff",
@@ -2168,7 +2171,7 @@ export class Task
 								const content = await extractTextFromFile(absolutePath)
 
 								// Track file read operation
-								await this.fileContextTracker.trackFileContext(relPath, "read_tool")
+								await this.fileContextTracker.trackFile(relPath, "read_tool")
 
 								pushToolResult(content)
 
@@ -3468,10 +3471,14 @@ export class Task
 			}
 		}
 
-		const [parsedUserContent, environmentDetails] = await this.loadContext(userContent, includeFileDetails)
+		const [parsedUserContent] = await this.loadContext(userContent)
 		userContent = parsedUserContent
+
+
+		const e = await getEnvironmentDetails(this.terminalManager, this.clineIgnoreController, this.fileContextTracker, includeFileDetails)
+
 		// add environment details as its own text block, separate from tool results
-		userContent.push({ type: "text", text: environmentDetails })
+		userContent.push({ type: "text", text: e })
 
 		this.taskModel.addToApiConversationHistory("user", userContent)
 
@@ -3663,7 +3670,7 @@ export class Task
 		}
 	}
 
-	async loadContext(userContent: Anthropic.ContentBlockParam[], includeFileDetails: boolean = false) {
+	async loadContext(userContent: Anthropic.ContentBlockParam[]) {
 		return await Promise.all([
 			// This is a temporary solution to dynamically load context mentions from tool results. 
 			// It checks for the presence of tags that indicate that the tool was rejected and feedback was provided 
@@ -3698,7 +3705,7 @@ export class Task
 					return block
 				}),
 			),
-			''//getEnvironmentDetails(this.terminalManager, this.clineIgnoreController, this.fileContextTracker, includeFileDetails),
+			
 		])
 	}
 }

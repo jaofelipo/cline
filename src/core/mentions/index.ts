@@ -106,7 +106,7 @@ export async function parseMentions(
 					parsedText += `\n\n<file_content path="${mentionPath}">\n${content}\n</file_content>`
 					// Track that this file was mentioned and its content was included
 					if (fileContextTracker) {
-						await fileContextTracker.trackFileContext(mentionPath, "file_mentioned")
+						await fileContextTracker.trackFile(mentionPath, "file_mentioned")
 					}
 				}
 			} catch (error) {

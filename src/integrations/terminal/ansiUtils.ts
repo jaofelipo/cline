@@ -1,4 +1,5 @@
-export function ansiRegex({ onlyFirst = false } = {}) {
+export function ansiRegex({ onlyFirst = false } = {}) 
+{
 	// Valid string terminator sequences are BEL, ESC\, and 0x9c
 	const ST = "(?:\\u0007|\\u001B\\u005C|\\u009C)"
 	const pattern = [
@@ -9,6 +10,7 @@ export function ansiRegex({ onlyFirst = false } = {}) {
 	return new RegExp(pattern, onlyFirst ? undefined : "g")
 }
 
-export function stripAnsi(string: string): string {
+export function stripAnsi(string: string): string 
+{
 	return string.replace(ansiRegex(), "")
 }

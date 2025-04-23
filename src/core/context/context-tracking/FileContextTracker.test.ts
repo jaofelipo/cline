@@ -64,7 +64,7 @@ describe("FileContextTracker", () => {
 	it("should add a record when a file is read by a tool", async () => {
 		const filePath = "src/test-file.ts"
 
-		await tracker.trackFileContext(filePath, "read_tool")
+		await tracker.trackFile(filePath, "read_tool")
 
 		// Verify getTaskMetadata was called
 		expect(getTaskMetadataStub.calledOnce).to.be.true
@@ -87,7 +87,7 @@ describe("FileContextTracker", () => {
 	it("should add a record when a file is edited by Cline", async () => {
 		const filePath = "src/test-file.ts"
 
-		await tracker.trackFileContext(filePath, "cline_edited")
+		await tracker.trackFile(filePath, "cline_edited")
 
 		// Verify saveTaskMetadata was called with the correct data
 		expect(saveTaskMetadataStub.calledOnce).to.be.true
@@ -115,7 +115,7 @@ describe("FileContextTracker", () => {
 	it("should add a record when a file is mentioned", async () => {
 		const filePath = "src/test-file.ts"
 
-		await tracker.trackFileContext(filePath, "file_mentioned")
+		await tracker.trackFile(filePath, "file_mentioned")
 
 		// Verify saveTaskMetadata was called with the correct data
 		const savedMetadata = saveTaskMetadataStub.firstCall.args[2]
@@ -131,7 +131,7 @@ describe("FileContextTracker", () => {
 	it("should add a record when a file is edited by the user", async () => {
 		const filePath = "src/test-file.ts"
 
-		await tracker.trackFileContext(filePath, "user_edited")
+		await tracker.trackFile(filePath, "user_edited")
 
 		// Verify saveTaskMetadata was called with the correct data
 		const savedMetadata = saveTaskMetadataStub.firstCall.args[2]
@@ -157,13 +157,13 @@ describe("FileContextTracker", () => {
 				record_state: "active",
 				record_source: "read_tool",
 				cline_read_date: Date.now() - 1000, // 1 second ago
-				cline_edit_date: null,
-				user_edit_date: null,
+				cline_edit_date: 0,
+				user_edit_date: 0,
 			},
 		]
 
 		// Track a new operation on the same file
-		await tracker.trackFileContext(filePath, "cline_edited")
+		await tracker.trackFile(filePath, "cline_edited")
 
 		// Verify the metadata now has two entries - one stale and one active
 		const savedMetadata = saveTaskMetadataStub.firstCall.args[2]
@@ -184,7 +184,7 @@ describe("FileContextTracker", () => {
 		// Create a spy to track if createFileSystemWatcher was called
 		const createWatcherSpy = sinon.spy(vscode.workspace, "createFileSystemWatcher")
 
-		await tracker.trackFileContext(filePath, "read_tool")
+		await tracker.trackFile(filePath, "read_tool")
 
 		// Verify createFileSystemWatcher was called
 		expect(createWatcherSpy.called).to.be.true
@@ -198,14 +198,14 @@ describe("FileContextTracker", () => {
 		const filePath = "src/test-file.ts"
 
 		// First track the file to set up the watcher
-		await tracker.trackFileContext(filePath, "read_tool")
+		await tracker.trackFile(filePath, "read_tool")
 
 		// Reset the stubs to check the next calls
 		getTaskMetadataStub.resetHistory()
 		saveTaskMetadataStub.resetHistory()
 
 		// Create a spy on trackFileContext to verify it's called with the right parameters
-		const trackFileContextSpy = sandbox.spy(tracker, "trackFileContext")
+		const trackFileContextSpy = sandbox.spy(tracker, "trackFile")
 
 		// Get the callback that was registered with onDidChange
 		const callback = mockFileSystemWatcher.onDidChange.firstCall.args[0]
@@ -225,7 +225,7 @@ describe("FileContextTracker", () => {
 		const filePath = "src/test-file.ts"
 
 		// First track the file to set up the watcher
-		await tracker.trackFileContext(filePath, "read_tool")
+		await tracker.trackFile(filePath, "read_tool")
 
 		// Mark the file as edited by Cline
 		tracker.markFileAsEditedByCline(filePath)
@@ -235,7 +235,7 @@ describe("FileContextTracker", () => {
 		saveTaskMetadataStub.resetHistory()
 
 		// Create a spy on trackFileContext to verify it's not called
-		const trackFileContextSpy = sandbox.spy(tracker, "trackFileContext")
+		const trackFileContextSpy = sandbox.spy(tracker, "trackFile")
 
 		// Get the callback that was registered with onDidChange
 		const callback = mockFileSystemWatcher.onDidChange.firstCall.args[0]
@@ -255,7 +255,7 @@ describe("FileContextTracker", () => {
 		const filePath = "src/test-file.ts"
 
 		// Track a file to set up the watcher
-		await tracker.trackFileContext(filePath, "read_tool")
+		await tracker.trackFile(filePath, "read_tool")
 
 		// Call dispose
 		tracker.dispose()
