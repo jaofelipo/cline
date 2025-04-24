@@ -95,8 +95,12 @@ export class TerminalProcess extends EventEmitter<TerminalProcessEvents>
 			this.emit("continue")
 			this.emit("no_shell_integration")
 		}
-		//return this.fullOutput -> solução sem guarda de fluxo
-		return new Promise(resolve => this.once("continue", () => resolve(this.fullOutput)));
+
+		return new Promise<string>((resolve, reject) => {
+			this.once("continue", () => resolve(this.fullOutput))
+			this.once("error", (error) => reject(error))
+		})
+
 	}
 
 	private emitRemainingBufferIfListening() 

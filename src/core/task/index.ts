@@ -93,16 +93,17 @@ import WorkspaceTracker from "../../integrations/workspace/WorkspaceTracker"
 import { McpHub } from "../../services/mcp/McpHub"
 import { TaskModel } from "@/umbit/task/TaskModel"
 import { getTranslation } from "@/locale/locale"
-import { isInTestMode } from "@/services/test/TestMode"
 import { updateCost } from "@/utils/llmUtils"
 import { getEnvironmentDetails } from "@/utils/EnvironmentDetails"
+import { TestWrapper } from "@/services/test/TestMode"
+import { resetTimer } from "@/utils/delayUtils"
 
 export const cwd =
 	vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? path.join(os.homedir(), "Desktop") // may or may not exist but fs checking existence would immediately ask for permission which would be bad UX, need to come up with a better solution
 
 export const isDesktop = arePathsEqual(cwd, path.join(os.homedir(), "Desktop"))	
 
-type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>
+export type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>
 
 
 export class Task 
@@ -169,6 +170,7 @@ export class Task
 	private didAutomaticallyRetryFailedApiRequest = false
 
 	public locale = getTranslation('pt-br')
+	public localeA = getTranslation('pt-br').assistantMessage
 
 	constructor(
 		context: vscode.ExtensionContext,
@@ -1143,218 +1145,68 @@ export class Task
 	}
 
 	// Tools
-
-	/**
-	 * Executes a command directly in Node.js using execa
-	 * This is used in test mode to capture the full output without using the VS Code terminal
-	 * Commands are automatically terminated after 30 seconds using Promise.race
-	 */
-	private async executeCommandInNode(command: string): Promise<[boolean, ToolResponse]> {
-		try {
-			// Create a child process
-			const childProcess = execa(command, {
-				shell: true,
-				cwd,
-				reject: false,
-				all: true, // Merge stdout and stderr
-			})
-
-			// Set up variables to collect output
-			let output = ""
-
-			// Collect output in real-time
-			if (childProcess.all) {
-				childProcess.all.on("data", (data) => {
-					output += data.toString()
-				})
-			}
-
-			// Create a timeout promise that rejects after 30 seconds
-			const timeoutPromise = new Promise<never>((_, reject) => {
-				setTimeout(() => {
-					if (childProcess.pid) {
-						childProcess.kill("SIGKILL") // Use SIGKILL for more forceful termination
-					}
-					reject(new Error("Command timeout after 30s"))
-				}, 30000)
-			})
-
-			// Race between command completion and timeout
-			const result = await Promise.race([childProcess, timeoutPromise]).catch((error) => {
-				// If we get here due to timeout, return a partial result with timeout flag
-				Logger.info(`Command timed out after 30s: ${command}`)
-				return {
-					stdout: "",
-					stderr: "",
-					exitCode: 124, // Standard timeout exit code
-					timedOut: true,
-				}
-			})
-
-			// Check if timeout occurred
-			const wasTerminated = result.timedOut === true
-
-			// Use collected output or result output
-			if (!output) {
-				output = result.stdout || result.stderr || ""
-			}
-
-			Logger.info(`Command executed in Node: ${command}\nOutput:\n${output}`)
-
-			// Add termination message if the command was terminated
-			if (wasTerminated) {
-				output += "\nCommand was taking a while to run so it was auto terminated after 30s"
-			}
-
-			// Format the result similar to terminal output
-			return [
-				false,
-				`Command executed${wasTerminated ? " (terminated after 30s)" : ""} with exit code ${
-					result.exitCode
-				}.${output.length > 0 ? `\nOutput:\n${output}` : ""}`,
-			]
-		} catch (error) {
-			// Handle any errors that might occur
-			const errorMessage = error instanceof Error ? error.message : String(error)
-			return [false, `Error executing command: ${errorMessage}`]
-		}
-	}
-
-	async executeCommandTool(command: string): Promise<[boolean, ToolResponse]> {
-		Logger.info("IS_TEST: " + isInTestMode())
-
-		// Check if we're in test mode
-		if (isInTestMode()) {
-			// In test mode, execute the command directly in Node
-			Logger.info("Executing command in Node: " + command)
-			return this.executeCommandInNode(command)
-		}
-		Logger.info("Executing command in VS code terminal: " + command)
-
+	async executeCommandTool(command: string): Promise<[boolean, ToolResponse]> 
+	{
 		const terminalInfo = await this.terminalManager.getOrCreateTerminal(cwd)
 		terminalInfo.terminal.show() // weird visual bug when creating new terminals (even manually) where there's an empty space at the top.
 		const process = this.terminalManager.prepareCommand(terminalInfo, command)
 
 		let userFeedback: { text?: string; images?: string[] } | undefined
-		let didContinue = false
-
-		// Chunked terminal output buffering
-		const CHUNK_LINE_COUNT = 20
-		const CHUNK_BYTE_SIZE = 2048 // 2KB
-		const CHUNK_DEBOUNCE_MS = 100
+		let firstRun = true
+		let result = ""
+		let completed = false
 
 		let outputBuffer: string[] = []
 		let outputBufferSize: number = 0
 		let chunkTimer: NodeJS.Timeout | null = null
-		let chunkEnroute = false
 
-		const flushBuffer = async (force = false) => {
-			if (chunkEnroute || outputBuffer.length === 0) {
-				if (force && !chunkEnroute && outputBuffer.length > 0) {
-					// If force is true and no chunkEnroute, flush anyway
-				} else {
-					return
-				}
-			}
-			const chunk = outputBuffer.join("\n")
-			outputBuffer = []
-			outputBufferSize = 0
-			chunkEnroute = true
-			try {
-				const { response, text, images } = await this.ask("command_output", chunk)
-				if (response === "yesButtonClicked") {
-					// proceed while running
-				} else {
-					userFeedback = { text, images }
-				}
-				didContinue = true
-				process.continue()
-			} catch {
-				// ask promise was ignored
-			} finally {
-				chunkEnroute = false
-				// If more output accumulated while chunkEnroute, flush again
-				if (outputBuffer.length > 0) {
-					await flushBuffer()
-				}
-			}
-		}
+		process.on("line", (line) => onLineReceived(this, line))
+        process.once("completed", () => completed = true)
+		process.once("no_shell_integration", async () => await this.say("shell_integration_warning"))
 
-		const scheduleFlush = () => {
-			if (chunkTimer) {
-				clearTimeout(chunkTimer)
-			}
-			chunkTimer = setTimeout(() => flushBuffer(), CHUNK_DEBOUNCE_MS)
-		}
+		const fullOutput = await process.run()
 
-		let result = ""
-		process.on("line", (line) => {
-			result += line + "\n"
-
-			if (!didContinue) {
-				outputBuffer.push(line)
-				outputBufferSize += Buffer.byteLength(line, "utf8")
-				// Flush if buffer is large enough
-				if (outputBuffer.length >= CHUNK_LINE_COUNT || outputBufferSize >= CHUNK_BYTE_SIZE) {
-					flushBuffer()
-				} else {
-					scheduleFlush()
-				}
-			} else {
-				this.say("command_output", line)
-			}
-		})
-
-		let completed = false
-		process.once("completed", async () => {
-			completed = true
-			// Flush any remaining buffered output
-			if (!didContinue && outputBuffer.length > 0) {
-				if (chunkTimer) {
-					clearTimeout(chunkTimer)
-					chunkTimer = null
-				}
-				await flushBuffer(true)
-			}
-		})
-
-		process.once("no_shell_integration", async () => {
-			await this.say("shell_integration_warning")
-		})
-
-		await process
-
-		// Wait for a short delay to ensure all messages are sent to the webview
-		// This delay allows time for non-awaited promises to be created and
-		// for their associated messages to be sent to the webview, maintaining
-		// the correct order of messages (although the webview is smart about
-		// grouping command_output messages despite any gaps anyways)
-		await setTimeoutPromise(50)
+		await setTimeoutPromise(100) // Wait for a short delay to ensure all messages are sent to the webview
 
 		result = result.trim()
 
-		if (userFeedback) {
+		if (userFeedback) 
+		{
 			await this.say("user_feedback", userFeedback.text, userFeedback.images)
-			return [
-				true,
-				formatResponse.toolResult(
-					`Command is still running in the user's terminal.${
-						result.length > 0 ? `\nHere's the output so far:\n${result}` : ""
-					}\n\nThe user provided the following feedback:\n<feedback>\n${userFeedback.text}\n</feedback>`,
-					userFeedback.images,
-				),
-			]
+			return [true, formatResponse.toolResult(this.localeA.userFeedback(result, userFeedback.text), userFeedback.images)]
 		}
 
-		if (completed) {
-			return [false, `Command executed.${result.length > 0 ? `\nOutput:\n${result}` : ""}`]
-		} else {
-			return [
-				false,
-				`Command is still running in the user's terminal.${
-					result.length > 0 ? `\nHere's the output so far:\n${result}` : ""
-				}\n\nYou will be updated on the terminal status and new output in the future.`,
-			]
+		return (completed) ? [false, this.localeA.commandExecuted(result)] : [false, this.localeA.commandRunning(result, true)]
+
+
+		async function onLineReceived (task:Task, line: string): Promise<void>
+		{
+			result += line + "\n"
+            if (firstRun) 
+			{
+				outputBuffer.push(line)
+				outputBufferSize += Buffer.byteLength(line, "utf8")
+				// Flush if buffer is large enough, then delay to zero
+				let delay = (outputBuffer.length >= 20 || outputBufferSize >= 2048 /*2k*/) ? 0 : 100 //delay 100 ms if buffer less than 2kb or 20 line
+				chunkTimer = resetTimer(chunkTimer, () => sendToWebView(task), delay)
+			}
+			else
+			{
+				task.say("command_output", line)
+			}
+
+			async function sendToWebView (task:Task) 
+			{
+				if (outputBuffer.length > 0)
+				{
+					firstRun = false
+					const chunk = outputBuffer.join("\n")
+					const { response, text, images } = await task.ask("command_output", chunk)
+					if (response !== "yesButtonClicked") 
+						userFeedback = { text, images }
+					process.continue()
+				}
+			}
 		}
 	}
 
@@ -2679,7 +2531,7 @@ export class Task
 									}, 30_000)
 								}
 
-								const [userRejected, result] = await this.executeCommandTool(command)
+								const [userRejected, result] = await TestWrapper.executeCommandTool(command, this) 
 								if (timeoutId) {
 									clearTimeout(timeoutId)
 								}
@@ -3230,7 +3082,7 @@ export class Task
 									if (!didApprove) {
 										break
 									}
-									const [userRejected, execCommandResult] = await this.executeCommandTool(command!)
+									const [userRejected, execCommandResult] = await TestWrapper.executeCommandTool(command, this) 
 									if (userRejected) {
 										this.didRejectTool = true
 										pushToolResult(execCommandResult)

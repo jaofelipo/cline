@@ -64,9 +64,10 @@ export const ptBr:Labels = {
     },
     assistantMessage:
     {
-        commandRunning: (output) => `O comando ainda está em execução no terminal do usuário.${output ? `\nAqui está a saída até agora:\n${output}` : ""}`,
+        commandRunning: (output, full) => `O comando ainda está em execução no terminal do usuário.${(output.length > 0) ? `\nAqui está a saída até agora:\n${output}` : ""}
+                    ${(full) ? `\n\nYou will be updated on the terminal status and new output in the future.` : ""}`,
         userFeedback: (output, feedbackText) => `${ptBr.assistantMessage.commandRunning(output)}\n\nO usuário forneceu o seguinte feedback:\n<feedback>\n${feedbackText}\n</feedback>`,
-        commandExecuted: (output) =>  `Comando executado.${output ? `\nSaída:\n${output}` : ""}`,
+        commandExecuted: (output) =>  `Comando executado.${(output.length) ? `\nSaída:\n${output}` : ""}`,
         invalidMcpToolArgumentError: (serverName: string, toolName: string) => 
             ptBr.cline.toolError(`Invalid JSON argument used with ${serverName} for ${toolName}. Please retry with a properly formatted JSON argument.`), 
         missingParamError:(toolName: string, paramName: string, relPath?: string) => `Cline tried to use ${toolName}${relPath ? ` for '${relPath.toPosix()}'` : ""} 
