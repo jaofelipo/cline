@@ -51,7 +51,7 @@ export class GeminiHandler
 	}
 }
 
-export function convertAnthropicMessageToGemini(message: Anthropic.Messages.MessageParam): Content 
+function convertAnthropicMessageToGemini(message: Anthropic.Messages.MessageParam): Content 
 {
 	return {
 		role: message.role === "assistant" ? "model" : "user",
