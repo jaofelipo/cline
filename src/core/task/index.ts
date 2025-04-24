@@ -1158,7 +1158,7 @@ export class Task
 
 		let outputBuffer: string[] = []
 		let outputBufferSize: number = 0
-		let chunkTimer: NodeJS.Timeout | null = null
+		let chunkTimer: NodeJS.Timeout | undefined = undefined
 
 		process.on("line", (line) => onLineReceived(this, line))
         process.once("completed", () => completed = true)

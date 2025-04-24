@@ -8,9 +8,9 @@ export async function waitForCondition(callback: () => boolean, interval:number=
     } catch (e) {}
 }
 
-export function resetTimer(timer: NodeJS.Timeout | null, callback: () => void, delay: number)
+export function resetTimer(timer?: NodeJS.Timeout, callback?: () => void, delay?: number)
 {
     if (timer) 
         clearTimeout(timer)
-    return setTimeout(callback, delay)
+    return (delay && callback !== undefined) ? setTimeout(callback, delay) : undefined
 }

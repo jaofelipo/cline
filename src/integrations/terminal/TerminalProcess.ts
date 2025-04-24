@@ -3,6 +3,7 @@ import { stripAnsi } from "./ansiUtils"
 import * as vscode from "vscode"
 import { removeFromLastLine } from "@/utils/string"
 import pWaitFor from "p-wait-for"
+import { resetTimer } from "@/utils/delayUtils"
 
 export interface TerminalProcessEvents {
 	line: [line: string]
@@ -25,7 +26,7 @@ export class TerminalProcess extends EventEmitter<TerminalProcessEvents>
 	{
 		return this.hotTimer !== null
 	}
-	private hotTimer: NodeJS.Timeout | null = null
+	private hotTimer: NodeJS.Timeout | undefined = undefined
 	private terminal: vscode.Terminal
 	private command:string
 
@@ -55,7 +56,7 @@ export class TerminalProcess extends EventEmitter<TerminalProcessEvents>
 
 				if (data.includes("^C") || data.includes("\u0003"))  // Ctrl+C detection: if user presses Ctrl+C, treat as command terminated
 				{
-					this.hotTimer = this.clearAndCreateTimer(this.hotTimer, undefined)
+					this.hotTimer = resetTimer(this.hotTimer)
 					break
 				}
 
@@ -66,7 +67,7 @@ export class TerminalProcess extends EventEmitter<TerminalProcessEvents>
 
 				// 2. Set isHot depending on the command
 				const waitingTime = this.isCompiling(data) ? PROCESS_HOT_TIMEOUT_COMPILING : PROCESS_HOT_TIMEOUT_NORMAL
-				this.hotTimer = this.clearAndCreateTimer(this.hotTimer, waitingTime) // Set to hot to stall API requests until terminal is cool again
+				this.hotTimer = resetTimer(this.hotTimer, () => this.hotTimer =  undefined, waitingTime) // Set to hot to stall API requests until terminal is cool again
 				
 				if (this.buffer.length === 0 && data) // For non-immediately show loading spinner, as soon as we get any output emit "" to let webview know to show spinner
 					this.emit("line", "") // empty line to indicate start of command output stream
@@ -84,7 +85,7 @@ export class TerminalProcess extends EventEmitter<TerminalProcessEvents>
 
 			this.emitRemainingBufferIfListening()
 
-			this.hotTimer = this.clearAndCreateTimer(this.hotTimer, undefined)
+			this.hotTimer = resetTimer(this.hotTimer)//this.clearAndCreateTimer(this.hotTimer,  undefined)
 			this.emit("completed")
 			this.emit("continue")
 		}
@@ -129,13 +130,6 @@ export class TerminalProcess extends EventEmitter<TerminalProcessEvents>
 		return removeFromLastLine(unretrieved, /[%$#>]\s*$/)
 	}
 
-	private clearAndCreateTimer(previousTimer: NodeJS.Timeout | null, waitingTime:number | undefined)
-	{
-		if (previousTimer) 
-			clearTimeout(previousTimer)
-
-		return (waitingTime) ? setTimeout(() => this.hotTimer = null, waitingTime) : null
-	}
 
 	private isCompiling(data:string):boolean
 	{
