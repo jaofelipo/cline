@@ -1,3 +1,4 @@
+
 /**
  * Module for managing test mode state across the extension
  * This provides a centralized way to check if the extension is running in test mode
@@ -8,8 +9,8 @@ import * as fs from "fs"
 import * as path from "path"
 import { Logger } from "../logging/Logger"
 import { createTestServer, shutdownTestServer } from "./TestServer"
-import { cwd, Task, ToolResponse } from "@/core/task"
 import { execa } from "execa"
+import { cwd, Task } from "@/core/task"
 
 // State variable
 let isTestMode = false
@@ -129,7 +130,7 @@ export class TestWrapper
 		 * This is used in test mode to capture the full output without using the VS Code terminal
 		 * Commands are automatically terminated after 30 seconds using Promise.race
 		 */
-		async function executeCommandInNode(command: string): Promise<[boolean, ToolResponse]> 
+		async function executeCommandInNode(command: string): Promise<{text:string, images?:string[]} | string> 
 		{
 			try {
 				// Create a child process
@@ -188,19 +189,15 @@ export class TestWrapper
 				}
 
 				// Format the result similar to terminal output
-				return [
-					false,
-					`Command executed${wasTerminated ? " (terminated after 30s)" : ""} with exit code ${
+				return {text: `Command executed${wasTerminated ? " (terminated after 30s)" : ""} with exit code ${
 						result.exitCode
-					}.${output.length > 0 ? `\nOutput:\n${output}` : ""}`,
-				]
+					}.${output.length > 0 ? `\nOutput:\n${output}` : ""}`}
 			} catch (error) {
 				// Handle any errors that might occur
 				const errorMessage = error instanceof Error ? error.message : String(error)
-				return [false, `Error executing command: ${errorMessage}`]
+				return `Error executing command: ${errorMessage}`
 			}
 		}
 	}
 }
-
 

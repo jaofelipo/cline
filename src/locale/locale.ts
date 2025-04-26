@@ -1,3 +1,4 @@
+
 import path from "path"
 import { ToolUse } from "../core/assistant-message";
 import { en } from "./en";
@@ -89,7 +90,7 @@ export interface Labels {
         missingParamError:(toolName: string, paramName: string, relPath?: string) => string
         missingToolParameterError: (paramName: string) => string
         invalidToolnameArgumentError: (tool_name?:string) => string
-        invalidMcpToolArgumentError: (serverName:string, toolName:string) => string
+        invalidMcpToolArgumentError: (serverName?:string, toolName?:string) => string
         defaultErrorFormatted: (action:string, error:Error) => string
         defaultError: (action:string, error:Error) => string
         resultWithFeedback: (response?:String) => string,
@@ -105,6 +106,12 @@ export interface Labels {
         userFeedback: (output:string, feedbackText?:string) => string
         commandRunning: (output:string, full?:boolean) => string
         commandExecuted: (output: string) => string
+        newTask:string
+        newTaskWithFeedback: (text:string) => string
+        condenseFeedback: (text:string) => string
+        condense: string
+        switchToActMode: (text?:string) => string
+        feedback: (text?:string) => string
         messages:{
             execute_command: (data:string[]) => string,
             read_file: (data:string[]) => string,
@@ -121,17 +128,21 @@ export interface Labels {
         }
         titles:{
             execute_command: string,
-            read_file: string,
-            write_to_file: string,
-            replace_in_file: string,
             search_files: string,
             list_files: string,
             list_code_definition_names: string,
+            read_file: string,
+            write_to_file: string,
+            replace_in_file: string,
             browser_action: string,
             use_mcp_tool: string,
             access_mcp_resource: string,
             ask_followup_question: string,
             attempt_completion: string,
+            load_mcp_documentation: string,
+            new_task: string,
+            plan_mode_respond: string,
+            condense: string
         }
     }
     system:

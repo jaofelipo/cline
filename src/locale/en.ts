@@ -64,14 +64,19 @@ export const en:Labels = {
     },
     assistantMessage:
     {
+        newTask:"The user has created a new task with the provided context.",
+        newTaskWithFeedback: (text:string) => `The user provided feedback instead of creating a new task:\n<feedback>\n${text}\n</feedback>`,
+        condenseFeedback: (text:string) => `The user provided feedback on the condensed conversation summary:\n<feedback>\n${text}\n</feedback>`,
+        condense: `The user has accepted the condensed conversation summary you generated. This summary covers important details of the historical conversation with the user which has been truncated.\n<explicit_instructions type="condense_response">It's crucial that you respond by ONLY asking the user what you should work on next. You should NOT take any initiative or make any assumptions about continuing with work. For example you should NOT suggest file changes or attempt to read any files.\nWhen asking the user what you should work on next, you can reference information in the summary which was just generated. However, you should NOT reference information outside of what's contained in the summary for this response. Keep this response CONCISE.</explicit_instructions>`,
+        switchToActMode: (text?:string) => `[The user has switched to ACT MODE, so you may now proceed with the task.]` + text ? `\n\nThe user also provided the following message when switching to ACT MODE:\n<user_message>\n${text}\n</user_message>` : "",
         commandRunning: (output, full) => `Command is still running in the user's terminal.${(output.length > 0) ? `\nHere's the output so far:\n${output}` : ""}
                     ${(full) ? `\n\nYou will be updated on the terminal status and new output in the future.` : ""}`,
+        feedback: (text?:string) => `<user_message>\n${text}\n</user_message>`,
         userFeedback: (output, feedbackText) => `${en.assistantMessage.commandRunning(output)}\n\nThe user provided the following feedback:\n<feedback>\n${feedbackText}\n</feedback>`,
         commandExecuted: (output) => `Command executed.${(output?.length > 0) ? `\nOutput:\n${output}` : ""}`,
-        invalidMcpToolArgumentError: (serverName: string, toolName: string) => 
+        invalidMcpToolArgumentError: (serverName?: string, toolName?: string) => 
             en.cline.toolError(`Invalid JSON argument used with ${serverName} for ${toolName}. Please retry with a properly formatted JSON argument.`), 
-        missingParamError:(toolName: string, paramName: string, relPath?: string) => `Cline tried to use ${toolName}${relPath ? ` for '${relPath.toPosix()}'` : ""} 
-            without value for required parameter '${paramName}'. Retrying...`,
+        missingParamError:(toolName: string, paramName: string, relPath?: string) => `Cline tried to use ${toolName}${relPath ? ` for '${relPath.toPosix()}'` : ""} without value for required parameter '${paramName}'. Retrying...`,
         missingToolParameterError: (paramName: string) => en.cline.toolError(`Missing value for required parameter '${paramName}'. Please retry with complete response.\n\n${toolUseInstructionsReminder}`),
         defaultError: (action:string, error:Error) => en.cline.toolError(`Error ${action}: ${JSON.stringify(serializeError(error))}`),
         defaultErrorFormatted: (action:string, error:Error) => `Error ${action}:\n${error.message ?? JSON.stringify(serializeError(error), null, 2)}`,
@@ -97,7 +102,7 @@ export const en:Labels = {
                 case "execute_command":
                     return `[${block.name} for '${block.params.command}']`
                 case "search_files":
-                    return `[${block.name} for '${block.params.regex}'${block.params.file_pattern ? ` in '${block.params.file_pattern}'` : ""}]`
+                    return `[${block.name} for '${block.params.regex}'${(block.params.file_pattern) ? ` in '${block.params.file_pattern}'` : ""}]`
                 case "list_files":
                 case "list_code_definition_names":
                 case "read_file":
@@ -112,11 +117,12 @@ export const en:Labels = {
                 case "ask_followup_question":
                     return `[${block.name} for '${block.params.question}']`
                 case "attempt_completion":
-                    return `[${block.name}]`
                 case 'load_mcp_documentation':
-                case 'new_task':
+                case 'condense':
                 case 'plan_mode_respond':
-                    throw new Error('Not implemented')
+                    return `[${block.name}]`
+                case 'new_task':
+                    return `[${block.name} for creating a new task]`
             }
         },
         messages:{
@@ -146,6 +152,10 @@ export const en:Labels = {
             access_mcp_resource: "accessing MCP resource",
             ask_followup_question: "asking question",
             attempt_completion: "attempting completion",
+            load_mcp_documentation: "loading MCP documentation",
+            new_task: "creating new task",
+            plan_mode_respond: "responding to inquiry",
+            condense: "condensing context window"
         }
     },
     system:

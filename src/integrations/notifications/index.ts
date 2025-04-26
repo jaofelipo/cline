@@ -1,15 +1,8 @@
 import { execa } from "execa"
 import { platform } from "os"
 
-interface NotificationOptions {
-	title?: string
-	subtitle?: string
-	message: string
-}
-
-async function showMacOSNotification(options: NotificationOptions): Promise<void> {
-	const { title, subtitle = "", message } = options
-
+async function showMacOSNotification(subtitle:string, message:string, title:string): Promise<void> 
+{
 	const script = `display notification "${message}" with title "${title}" subtitle "${subtitle}" sound name "Tink"`
 
 	try {
@@ -19,9 +12,8 @@ async function showMacOSNotification(options: NotificationOptions): Promise<void
 	}
 }
 
-async function showWindowsNotification(options: NotificationOptions): Promise<void> {
-	const { subtitle, message } = options
-
+async function showWindowsNotification(subtitle:string, message:string): Promise<void> 
+{
 	const script = `
     [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
     [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
@@ -50,11 +42,10 @@ async function showWindowsNotification(options: NotificationOptions): Promise<vo
 	}
 }
 
-async function showLinuxNotification(options: NotificationOptions): Promise<void> {
-	const { title = "", subtitle = "", message } = options
-
-	// Combine subtitle and message if subtitle exists
-	const fullMessage = subtitle ? `${subtitle}\n${message}` : message
+async function showLinuxNotification(subtitle:string, message:string, title:string): Promise<void> 
+{
+	
+	const fullMessage = subtitle ? `${subtitle}\n${message}` : message // Combine subtitle and message if subtitle exists
 
 	try {
 		await execa("notify-send", [title, fullMessage])
@@ -63,35 +54,30 @@ async function showLinuxNotification(options: NotificationOptions): Promise<void
 	}
 }
 
-export async function showSystemNotification(options: NotificationOptions): Promise<void> {
+export async function showSystemNotification(subtitle:string, message:string, title:string="AI Coder"): Promise<void> 
+{
 	try {
-		const { title = "Cline", message } = options
+		title = title.replace(/"/g, '\\"'),
+		message = message.replace(/"/g, '\\"')
+		subtitle = subtitle?.replace(/"/g, '\\"') || ""
 
-		if (!message) {
-			throw new Error("Message is required")
-		}
-
-		const escapedOptions = {
-			...options,
-			title: title.replace(/"/g, '\\"'),
-			message: message.replace(/"/g, '\\"'),
-			subtitle: options.subtitle?.replace(/"/g, '\\"') || "",
-		}
-
-		switch (platform()) {
+		switch (platform()) 
+		{
 			case "darwin":
-				await showMacOSNotification(escapedOptions)
+				await showMacOSNotification(subtitle, message, title)
 				break
 			case "win32":
-				await showWindowsNotification(escapedOptions)
+				await showWindowsNotification(subtitle, message)
 				break
 			case "linux":
-				await showLinuxNotification(escapedOptions)
+				await showLinuxNotification(subtitle, message, title)
 				break
 			default:
 				throw new Error("Unsupported platform")
 		}
-	} catch (error) {
+	} 
+	catch (error)
+	{
 		console.error("Could not show system notification", error)
 	}
 }
