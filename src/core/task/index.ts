@@ -373,15 +373,12 @@ export class Task
 			case "access_mcp_resource":
 			case "ask_followup_question":
 			case "plan_mode_respond":
-				return `[${block.name}]`
 			case "load_mcp_documentation":
-				return `[${block.name}]`
 			case "attempt_completion":
+			case "condense":
 				return `[${block.name}]`
 			case "new_task":
 				return `[${block.name} for creating a new task]`
-			case "condense":
-				return `[${block.name}]`
 		}
 	}	
 
@@ -1228,7 +1225,7 @@ export class Task
 
 		const fullOutput = await process.run()
 
-		await setTimeoutPromise(100) // Wait for a short delay to ensure all messages are sent to the webview
+		await setTimeoutPromise(50) // Wait for a short delay to ensure all messages are sent to the webview
 
 		result = result.trim()
 
@@ -2040,227 +2037,8 @@ export class Task
 							break
 						}
 					}
-					case "list_files": {
-						const relDirPath: string | undefined = block.params.path
-						const recursiveRaw: string | undefined = block.params.recursive
-						const recursive = recursiveRaw?.toLowerCase() === "true"
-						const sharedMessageProps: ClineSayTool = {
-							tool: !recursive ? "listFilesTopLevel" : "listFilesRecursive",
-							path: getReadablePath(cwd, this.removeClosingTag(block, "path", relDirPath)),
-						}
-						try {
-							if (block.partial) {
-								const partialMessage = JSON.stringify({
-									...sharedMessageProps,
-									content: "",
-									operationIsLocatedInWorkspace: isLocatedInWorkspace(block.params.path),
-								} satisfies ClineSayTool)
-								if (this.shouldAutoApproveToolWithPath(block.name, block.params.path)) {
-									this.removeLastPartialMessageIfExistsWithType("ask", "tool")
-									await this.say("tool", partialMessage, undefined, block.partial)
-								} else {
-									this.removeLastPartialMessageIfExistsWithType("say", "tool")
-									await this.ask("tool", partialMessage, block.partial).catch(() => {})
-								}
-								break
-							} else {
-								if (!relDirPath) {
-									this.taskModel.consecutiveMistakeCount++
-									this.pushToolResult(block, await this.sayAndCreateMissingParamError("list_files", "path"))
 
-									break
-								}
-								this.taskModel.consecutiveMistakeCount = 0
-
-								const absolutePath = path.resolve(cwd, relDirPath)
-
-								const [files, didHitLimit] = await listFiles(absolutePath, recursive, 200)
-
-								const result = formatResponse.formatFilesList(
-									absolutePath,
-									files,
-									didHitLimit,
-									this.clineIgnoreController,
-								)
-								const completeMessage = JSON.stringify({
-									...sharedMessageProps,
-									content: result,
-									operationIsLocatedInWorkspace: isLocatedInWorkspace(block.params.path),
-								} satisfies ClineSayTool)
-								if (this.shouldAutoApproveToolWithPath(block.name, block.params.path)) {
-									this.removeLastPartialMessageIfExistsWithType("ask", "tool")
-									await this.say("tool", completeMessage, undefined, false)
-									this.consecutiveAutoApprovedRequestsCount++
-									telemetryService.captureToolUsage(this.taskId, block.name, true, true)
-								} else {
-									if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) 
-										showSystemNotification("Approval Required",	`Cline wants to view directory ${path.basename(absolutePath)}/`)
-									this.removeLastPartialMessageIfExistsWithType("say", "tool")
-									const didApprove = await this.askApproval(block, "tool", completeMessage)
-									if (!didApprove) {
-										telemetryService.captureToolUsage(this.taskId, block.name, false, false)
-										break
-									}
-									telemetryService.captureToolUsage(this.taskId, block.name, false, true)
-								}
-								this.pushToolResult(block, result)
-
-								break
-							}
-						} catch (error) {
-							await this.handleError(block, error)
-
-							break
-						}
-					}
-					case "list_code_definition_names": {
-						const relDirPath: string | undefined = block.params.path
-						const sharedMessageProps: ClineSayTool = {
-							tool: "listCodeDefinitionNames",
-							path: getReadablePath(cwd, this.removeClosingTag(block, "path", relDirPath)),
-						}
-						try {
-							if (block.partial) {
-								const partialMessage = JSON.stringify({
-									...sharedMessageProps,
-									content: "",
-									operationIsLocatedInWorkspace: isLocatedInWorkspace(block.params.path),
-								} satisfies ClineSayTool)
-								if (this.shouldAutoApproveToolWithPath(block.name, block.params.path)) {
-									this.removeLastPartialMessageIfExistsWithType("ask", "tool")
-									await this.say("tool", partialMessage, undefined, block.partial)
-								} else {
-									this.removeLastPartialMessageIfExistsWithType("say", "tool")
-									await this.ask("tool", partialMessage, block.partial).catch(() => {})
-								}
-								break
-							} else {
-								if (!relDirPath) {
-									this.taskModel.consecutiveMistakeCount++
-									this.pushToolResult(block, await this.sayAndCreateMissingParamError("list_code_definition_names", "path"))
-
-									break
-								}
-
-								this.taskModel.consecutiveMistakeCount = 0
-
-								const absolutePath = path.resolve(cwd, relDirPath)
-								const result = await parseSourceCodeForDefinitionsTopLevel(
-									absolutePath,
-									this.clineIgnoreController,
-								)
-
-								const completeMessage = JSON.stringify({
-									...sharedMessageProps,
-									content: result,
-									operationIsLocatedInWorkspace: isLocatedInWorkspace(block.params.path),
-								} satisfies ClineSayTool)
-								if (this.shouldAutoApproveToolWithPath(block.name, block.params.path)) {
-									this.removeLastPartialMessageIfExistsWithType("ask", "tool")
-									await this.say("tool", completeMessage, undefined, false)
-									this.consecutiveAutoApprovedRequestsCount++
-									telemetryService.captureToolUsage(this.taskId, block.name, true, true)
-								} else {
-									if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) 
-										showSystemNotification("Approval Required",	`Cline wants to view source code definitions in ${path.basename(absolutePath)}/`)
-									this.removeLastPartialMessageIfExistsWithType("say", "tool")
-									const didApprove = await this.askApproval(block, "tool", completeMessage)
-									if (!didApprove) {
-										telemetryService.captureToolUsage(this.taskId, block.name, false, false)
-										break
-									}
-									telemetryService.captureToolUsage(this.taskId, block.name, false, true)
-								}
-								this.pushToolResult(block, result)
-
-								break
-							}
-						} catch (error) {
-							await this.handleError(block, error)
-
-							break
-						}
-					}
-					case "search_files": {
-						const relDirPath: string | undefined = block.params.path
-						const regex: string | undefined = block.params.regex
-						const filePattern: string | undefined = block.params.file_pattern
-						const sharedMessageProps: ClineSayTool = {
-							tool: "searchFiles",
-							path: getReadablePath(cwd, this.removeClosingTag(block, "path", relDirPath)),
-							regex: this.removeClosingTag(block, "regex", regex),
-							filePattern: this.removeClosingTag(block, "file_pattern", filePattern),
-						}
-						try {
-							if (block.partial) {
-								const partialMessage = JSON.stringify({
-									...sharedMessageProps,
-									content: "",
-									operationIsLocatedInWorkspace: isLocatedInWorkspace(block.params.path),
-								} satisfies ClineSayTool)
-								if (this.shouldAutoApproveToolWithPath(block.name, block.params.path)) {
-									this.removeLastPartialMessageIfExistsWithType("ask", "tool")
-									await this.say("tool", partialMessage, undefined, block.partial)
-								} else {
-									this.removeLastPartialMessageIfExistsWithType("say", "tool")
-									await this.ask("tool", partialMessage, block.partial).catch(() => {})
-								}
-								break
-							} else {
-								if (!relDirPath) {
-									this.taskModel.consecutiveMistakeCount++
-									this.pushToolResult(block, await this.sayAndCreateMissingParamError("search_files", "path"))
-
-									break
-								}
-								if (!regex) {
-									this.taskModel.consecutiveMistakeCount++
-									this.pushToolResult(block, await this.sayAndCreateMissingParamError("search_files", "regex"))
-
-									break
-								}
-								this.taskModel.consecutiveMistakeCount = 0
-
-								const absolutePath = path.resolve(cwd, relDirPath)
-								const results = await regexSearchFiles(
-									cwd,
-									absolutePath,
-									regex,
-									filePattern,
-									this.clineIgnoreController,
-								)
-
-								const completeMessage = JSON.stringify({
-									...sharedMessageProps,
-									content: results,
-									operationIsLocatedInWorkspace: isLocatedInWorkspace(block.params.path),
-								} satisfies ClineSayTool)
-								if (this.shouldAutoApproveToolWithPath(block.name, block.params.path)) {
-									this.removeLastPartialMessageIfExistsWithType("ask", "tool")
-									await this.say("tool", completeMessage, undefined, false)
-									this.consecutiveAutoApprovedRequestsCount++
-									telemetryService.captureToolUsage(this.taskId, block.name, true, true)
-								} else {
-									if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) 
-										showSystemNotification("Approval Required",	`Cline wants to search files in ${path.basename(absolutePath)}/`)
-									this.removeLastPartialMessageIfExistsWithType("say", "tool")
-									const didApprove = await this.askApproval(block, "tool", completeMessage)
-									if (!didApprove) {
-										telemetryService.captureToolUsage(this.taskId, block.name, false, false)
-										break
-									}
-									telemetryService.captureToolUsage(this.taskId, block.name, false, true)
-								}
-								this.pushToolResult(block, results)
-
-								break
-							}
-						} catch (error) {
-							await this.handleError(block, error)
-
-							break
-						}
-					}
+					
 					case "browser_action": {
 						const action: BrowserAction | undefined = block.params.action as BrowserAction
 						const url: string | undefined = block.params.url
@@ -2278,7 +2056,8 @@ export class Task
 						}
 
 						try {
-							if (block.partial) {
+							if (block.partial) 
+								{
 								if (action === "launch") {
 									if (this.shouldAutoApproveTool(block.name)) {
 										this.removeLastPartialMessageIfExistsWithType("ask", "browser_action_launch")
@@ -2418,312 +2197,19 @@ export class Task
 							break
 						}
 					}
+					case "list_code_definition_names":
 					case "execute_command":
-						this.validateParamsAndExecute(block)
-						break;
 					case "use_mcp_tool": 
+					case "access_mcp_resource": 
+					case "ask_followup_question":
+					case "new_task":
+					case "condense":
+					case "plan_mode_respond":
+					case "search_files":
+					case "list_files":
+					case "attempt_completion":
 						this.validateParamsAndExecute(block)
 						break
-					case "access_mcp_resource": {
-						const server_name: string | undefined = block.params.server_name
-						const uri: string | undefined = block.params.uri
-						try {
-							if (block.partial) {
-								const partialMessage = JSON.stringify({
-									type: "access_mcp_resource",
-									serverName: this.removeClosingTag(block, "server_name", server_name),
-									uri: this.removeClosingTag(block, "uri", uri),
-								} satisfies ClineAskUseMcpServer)
-
-								if (this.shouldAutoApproveTool(block.name)) {
-									this.removeLastPartialMessageIfExistsWithType("ask", "use_mcp_server")
-									await this.say("use_mcp_server", partialMessage, undefined, block.partial)
-								} else {
-									this.removeLastPartialMessageIfExistsWithType("say", "use_mcp_server")
-									await this.ask("use_mcp_server", partialMessage, block.partial).catch(() => {})
-								}
-
-								break
-							} else {
-								if (!server_name) {
-									this.taskModel.consecutiveMistakeCount++
-									this.pushToolResult(block, await this.sayAndCreateMissingParamError("access_mcp_resource", "server_name"))
-
-									break
-								}
-								if (!uri) {
-									this.taskModel.consecutiveMistakeCount++
-									this.pushToolResult(block, await this.sayAndCreateMissingParamError("access_mcp_resource", "uri"))
-
-									break
-								}
-								this.taskModel.consecutiveMistakeCount = 0
-								const completeMessage = JSON.stringify({
-									type: "access_mcp_resource",
-									serverName: server_name,
-									uri,
-								} satisfies ClineAskUseMcpServer)
-
-								if (this.shouldAutoApproveTool(block.name)) {
-									this.removeLastPartialMessageIfExistsWithType("ask", "use_mcp_server")
-									await this.say("use_mcp_server", completeMessage, undefined, false)
-									this.consecutiveAutoApprovedRequestsCount++
-								} else {
-									if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) 
-										showSystemNotification("Approval Required",	`Cline wants to access ${uri} on ${server_name}`)
-
-									this.removeLastPartialMessageIfExistsWithType("say", "use_mcp_server")
-									const didApprove = await this.askApproval(block, "use_mcp_server", completeMessage)
-									if (!didApprove) {
-										break
-									}
-								}
-
-								// now execute the tool
-								await this.say("mcp_server_request_started")
-								const resourceResult = await this.mcpHub.readResource(server_name, uri)
-								const resourceResultPretty =
-									resourceResult?.contents
-										.map((item) => {
-											if (item.text) {
-												return item.text
-											}
-											return ""
-										})
-										.filter(Boolean)
-										.join("\n\n") || "(Empty response)"
-								await this.say("mcp_server_response", resourceResultPretty)
-								this.pushToolResult(block, resourceResultPretty)
-
-								break
-							}
-						} catch (error) {
-							await this.handleError(block, error)
-
-							break
-						}
-					}
-					case "ask_followup_question": {
-						const question: string | undefined = block.params.question
-						const optionsRaw: string | undefined = block.params.options
-						const sharedMessage = {
-							question: this.removeClosingTag(block, "question", question),
-							options: parsePartialArrayString(this.removeClosingTag(block, "options", optionsRaw)),
-						} satisfies ClineAskQuestion
-						try {
-							if (block.partial) {
-								await this.ask("followup", JSON.stringify(sharedMessage), block.partial).catch(() => {})
-								break
-							} else {
-								if (!question) {
-									this.taskModel.consecutiveMistakeCount++
-									this.pushToolResult(block, await this.sayAndCreateMissingParamError("ask_followup_question", "question"))
-
-									break
-								}
-								this.taskModel.consecutiveMistakeCount = 0
-
-								if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
-									showSystemNotification("Cline has a question...", question.replace(/\n/g, " "))
-								}
-
-								// Store the number of options for telemetry
-								const options = parsePartialArrayString(optionsRaw || "[]")
-
-								const { text, images } = await this.ask("followup", JSON.stringify(sharedMessage), false)
-
-								// Check if options contains the text response
-								if (optionsRaw && text && parsePartialArrayString(optionsRaw).includes(text)) {
-									// Valid option selected, don't show user message in UI
-									// Update last followup message with selected option
-									const lastFollowupMessage = findLast(this.clineMessages, (m) => m.ask === "followup")
-									if (lastFollowupMessage) {
-										lastFollowupMessage.text = JSON.stringify({
-											...sharedMessage,
-											selected: text,
-										} satisfies ClineAskQuestion)
-										await this.saveClineMessagesAndUpdateHistory()
-										telemetryService.captureOptionSelected(this.taskId, options.length, "act")
-									}
-								} else {
-									// Option not selected, send user feedback
-									telemetryService.captureOptionsIgnored(this.taskId, options.length, "act")
-									await this.say("user_feedback", text ?? "", images)
-								}
-
-								this.pushToolResult(block, `<answer>\n${text}\n</answer>`, images, true)
-
-								break
-							}
-						} catch (error) {
-							await this.handleError(block, error)
-
-							break
-						}
-					}
-					case "new_task": {
-						const context: string | undefined = block.params.context
-						try {
-							if (block.partial) {
-								await this.ask("new_task", this.removeClosingTag(block, "context", context), block.partial).catch(() => {})
-								break
-							} else {
-								if (!context) {
-									this.taskModel.consecutiveMistakeCount++
-									this.pushToolResult(block, await this.sayAndCreateMissingParamError("new_task", "context"))
-									break
-								}
-								this.taskModel.consecutiveMistakeCount = 0
-
-								if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
-									showSystemNotification("Cline wants to start a new task...", `Cline is suggesting to start a new task with: ${context}`)
-								}
-
-								const { text, images } = await this.ask("new_task", context, false)
-
-								// If the user provided a response, treat it as feedback
-								if (text || images?.length) {
-									await this.say("user_feedback", text ?? "", images)
-									this.pushToolResult(block, this.localeA.newTaskWithFeedback(text ?? ''), images, true)
-								} else {
-									// If no response, the user clicked the "Create New Task" button
-									this.pushToolResult(block, this.localeA.newTask)
-								}
-								break
-							}
-						} catch (error) {
-							await this.handleError(block, error)
-							break
-						}
-					}
-					case "condense": {
-						/* for future merge
-						const context: string | undefined = block.params.context
-						try {
-							if (block.partial) {
-								await this.ask("condense", this.removeClosingTag(block, "context", context), block.partial).catch(() => {})
-								break
-							} else {
-								if (!context) {
-									this.taskModel.consecutiveMistakeCount++
-									this.pushToolResult(block, await this.sayAndCreateMissingParamError("condense", "context"))
-									break
-								}
-								this.taskModel.consecutiveMistakeCount = 0
-
-								if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) 
-									showSystemNotification("Cline wants to condense the conversation...", `Cline is suggesting to condense your conversation with: ${context}`)
-								
-								const { text, images } = await this.ask("condense", context, false)
-
-								// If the user provided a response, treat it as feedback
-								if (text || images?.length) {
-									await this.say("user_feedback", text ?? "", images)
-									this.pushToolResult(block, this.localeA.condenseFeedback(text ?? ''), images)
-								} else {
-									// If no response, the user accepted the condensed version
-									this.pushToolResult(block, this.localeA.condense)
-
-									const lastMessage = this.taskModel.apiConversationHistory[this.taskModel.apiConversationHistory.length - 1]
-									const summaryAlreadyAppended = lastMessage && lastMessage.role === "assistant"
-									const keepStrategy = summaryAlreadyAppended ? "lastTwo" : "none"
-
-									// clear the context history at this point in time
-									this.conversationHistoryDeletedRange = this.contextManager.getNextTruncationRange(
-										this.taskModel.apiConversationHistory,
-										this.conversationHistoryDeletedRange,
-										keepStrategy,
-									)
-									await this.saveClineMessagesAndUpdateHistory()
-									await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(
-										Date.now(),
-										await ensureTaskDirectoryExists(this.getContext(), this.taskId),
-									)
-								}
-								break
-							}
-						} catch (error) {
-							await this.handleError(block, error)
-							break
-						}*/
-						break
-					}
-					case "plan_mode_respond": {
-						const response: string | undefined = block.params.response
-						const optionsRaw: string | undefined = block.params.options
-						const sharedMessage = {
-							response: this.removeClosingTag(block, "response", response),
-							options: parsePartialArrayString(this.removeClosingTag(block, "options", optionsRaw)),
-						} satisfies ClinePlanModeResponse
-						try {
-							if (block.partial) {
-								await this.ask("plan_mode_respond", JSON.stringify(sharedMessage), block.partial).catch(() => {})
-								break
-							} else {
-								if (!response) {
-									this.taskModel.consecutiveMistakeCount++
-									this.pushToolResult(block, await this.sayAndCreateMissingParamError("plan_mode_respond", "response"))
-									//
-									break
-								}
-								this.taskModel.consecutiveMistakeCount = 0
-
-								// if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
-								// 	showSystemNotification({
-								// 		subtitle: "Cline has a response...",
-								// 		message: response.replace(/\n/g, " "),
-								// 	})
-								// }
-
-								// Store the number of options for telemetry
-								const options = parsePartialArrayString(optionsRaw || "[]")
-
-								this.isAwaitingPlanResponse = true
-								let { text, images } = await this.ask("plan_mode_respond", JSON.stringify(sharedMessage), false)
-								this.isAwaitingPlanResponse = false
-
-								// webview invoke sendMessage will send this marker in order to put webview into the proper state (responding to an ask) and as a flag to extension that the user switched to ACT mode.
-								if (text === "PLAN_MODE_TOGGLE_RESPONSE") {
-									text = ""
-								}
-
-								// Check if options contains the text response
-								if (optionsRaw && text && parsePartialArrayString(optionsRaw).includes(text)) {
-									// Valid option selected, don't show user message in UI
-									// Update last followup message with selected option
-									const lastPlanMessage = findLast(this.clineMessages, (m) => m.ask === "plan_mode_respond")
-									if (lastPlanMessage) {
-										lastPlanMessage.text = JSON.stringify({
-											...sharedMessage,
-											selected: text,
-										} satisfies ClinePlanModeResponse)
-										await this.saveClineMessagesAndUpdateHistory()
-										telemetryService.captureOptionSelected(this.taskId, options.length, "plan")
-									}
-								} else {
-									// Option not selected, send user feedback
-									if (text || images?.length) {
-										telemetryService.captureOptionsIgnored(this.taskId, options.length, "plan")
-										await this.say("user_feedback", text ?? "", images)
-									}
-								}
-
-								if (this.didRespondToPlanAskBySwitchingMode) {
-									this.pushToolResult(block, this.localeA.switchToActMode(text), images, true)
-								} else {
-									// if we didn't switch to ACT MODE, then we can just send the user_feedback message
-									this.pushToolResult(block, this.localeA.feedback(text), images)
-								}
-
-								//
-								break
-							}
-						} catch (error) {
-							await this.handleError(block, error)
-							//
-							break
-						}
-					}
 					case "load_mcp_documentation": {
 						try {
 							if (block.partial) {
@@ -2736,164 +2222,6 @@ export class Task
 							}
 						} catch (error) {
 							await this.handleError(block, error)
-							break
-						}
-					}
-					case "attempt_completion": {
-						/*
-						this.taskModel.consecutiveMistakeCount = 0
-						let resultToSend = result
-						if (command) {
-							await this.say("completion_result", resultToSend)
-							// TODO: currently we don't handle if this command fails, it could be useful to let cline know and retry
-							const [didUserReject, commandResult] = await this.executeCommand(command, true)
-							// if we received non-empty string, the command was rejected or failed
-							if (commandResult) {
-								return [didUserReject, commandResult]
-							}
-							resultToSend = ""
-						}
-						const { response, text, images } = await this.ask("completion_result", resultToSend) // this prompts webview to show 'new task' button, and enable text input (which would be the 'text' here)
-						if (response === "yesButtonClicked") {
-							return [false, ""] // signals to recursive loop to stop (for now this never happens since yesButtonClicked will trigger a new task)
-						}
-						await this.say("user_feedback", text ?? "", images)
-						return [
-						*/
-						const result: string | undefined = block.params.result
-						const command: string | undefined = block.params.command
-
-						const addNewChangesFlagToLastCompletionResultMessage = async () => {
-							// Add newchanges flag if there are new changes to the workspace
-
-							const hasNewChanges = await this.doesLatestTaskCompletionHaveNewChanges()
-							const lastCompletionResultMessage = findLast(this.clineMessages, (m) => m.say === "completion_result")
-							if (
-								lastCompletionResultMessage &&
-								hasNewChanges &&
-								!lastCompletionResultMessage.text?.endsWith(COMPLETION_RESULT_CHANGES_FLAG)
-							) {
-								lastCompletionResultMessage.text += COMPLETION_RESULT_CHANGES_FLAG
-							}
-							await this.saveClineMessagesAndUpdateHistory()
-						}
-
-						try {
-							const lastMessage = this.clineMessages.at(-1)
-							if (block.partial) {
-								if (command) {
-									// the attempt_completion text is done, now we're getting command
-									// remove the previous partial attempt_completion ask, replace with say, post state to webview, then stream command
-
-									// const secondLastMessage = this.clineMessages.at(-2)
-									// NOTE: we do not want to auto approve a command run as part of the attempt_completion tool
-									if (lastMessage && lastMessage.ask === "command") {
-										// update command
-										await this.ask("command", this.removeClosingTag(block, "command", command), block.partial).catch(
-											() => {},
-										)
-									} else {
-										// last message is completion_result
-										// we have command string, which means we have the result as well, so finish it (doesn't have to exist yet)
-										await this.say("completion_result", this.removeClosingTag(block, "result", result), undefined, false)
-										await this.saveCheckpoint(true)
-										await addNewChangesFlagToLastCompletionResultMessage()
-										await this.ask("command", this.removeClosingTag(block, "command", command), block.partial).catch(
-											() => {},
-										)
-									}
-								} else {
-									// no command, still outputting partial result
-									await this.say(
-										"completion_result",
-										this.removeClosingTag(block, "result", result),
-										undefined,
-										block.partial,
-									)
-								}
-								break
-							} else {
-								if (!result) {
-									this.taskModel.consecutiveMistakeCount++
-									this.pushToolResult(block, await this.sayAndCreateMissingParamError("attempt_completion", "result"))
-									break
-								}
-								this.taskModel.consecutiveMistakeCount = 0
-
-								if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) 
-									showSystemNotification("Task Completed", result.replace(/\n/g, " "))
-								
-
-								let commandResult
-								if (command) {
-									if (lastMessage && lastMessage.ask !== "command") {
-										// haven't sent a command message yet so first send completion_result then command
-										await this.say("completion_result", result, undefined, false)
-										await this.saveCheckpoint(true)
-										await addNewChangesFlagToLastCompletionResultMessage()
-										telemetryService.captureTaskCompleted(this.taskId)
-									} else {
-										// we already sent a command message, meaning the complete completion message has also been sent
-										await this.saveCheckpoint(true)
-									}
-
-									// complete command message
-									const didApprove = await this.askApproval(block, "command", command)
-									if (!didApprove) {
-										break
-									}
-									const execCommandResult = await TestWrapper.executeCommandTool(command, this) 
-									if (typeof execCommandResult === 'string')
-									{
-										this.didRejectTool = true
-										this.pushToolResult(block, execCommandResult)
-										break
-									}
-									// user didn't reject, but the command may have output
-									commandResult = execCommandResult
-								} else {
-									await this.say("completion_result", result, undefined, false)
-									await this.saveCheckpoint(true)
-									await addNewChangesFlagToLastCompletionResultMessage()
-									telemetryService.captureTaskCompleted(this.taskId)
-								}
-
-								// we already sent completion_result says, an empty string asks relinquishes control over button and field
-								const { response, text, images } = await this.ask("completion_result", "", false)
-								if (response === "yesButtonClicked") {
-									this.pushToolResult(block, "") // signals to recursive loop to stop (for now this never happens since yesButtonClicked will trigger a new task)
-									break
-								}
-								await this.say("user_feedback", text ?? "", images)
-
-								const toolResults: (Anthropic.TextBlockParam | Anthropic.ImageBlockParam)[] = []
-								if (commandResult) {
-									if (typeof commandResult === "string") {
-										toolResults.push({
-											type: "text",
-											text: commandResult,
-										})
-									} else if (Array.isArray(commandResult)) {
-										toolResults.push(...commandResult)
-									}
-								}
-								toolResults.push({
-									type: "text",
-									text: `The user has provided feedback on the results. Consider their input to continue the task, and then attempt completion again.\n<feedback>\n${text}\n</feedback>`,
-								})
-								toolResults.push(...formatResponse.imageBlocks(images))
-								this.userMessageContent.push({
-									type: "text",
-									text: `${this.localeA.toolDescription(block)} Result:`,
-								})
-								this.userMessageContent.push(...toolResults)
-
-								//
-								break
-							}
-						} catch (error) {
-							await this.handleError(block, error)
-
 							break
 						}
 					}
@@ -3292,12 +2620,12 @@ export class Task
 			"use_mcp_tool":         	{type:"use_mcp_server", params:["tool_name", "server_name"] },
 			"access_mcp_resource":  	{type:"use_mcp_server", params:['server_name', 'uri'] },
 			"ask_followup_question":	{type:"followup", params:['question'] },
-			"attempt_completion":   	{params:["result"] },
+			"attempt_completion":   	{params:["result"]},
 			"list_code_definition_names":   {type:"tool", params:['path'] },
 			"load_mcp_documentation" : 	{},
-			"new_task": 				{},
-			"plan_mode_respond":		{},
-			"condense":					{}	
+			"new_task": 				{params:["context"]},
+			"plan_mode_respond":		{params:['response']},
+			"condense":					{params:['context']}	
 		}
 		try 
 		{
@@ -3332,13 +2660,12 @@ export class Task
 					await this.ask("command", this.removeClosingTag(block, "command", block.params.command), block.partial).catch(() => {}) // don't need to remove last partial since we couldn't have streamed a say
 			break
 			case "use_mcp_tool": 
-				const server_name: string | undefined = block.params.server_name
 				const tool_name: string | undefined = block.params.tool_name
 				const mcp_arguments: string | undefined = block.params.arguments
 
 				const partialMessage = JSON.stringify({
 					type: "use_mcp_tool",
-					serverName: this.removeClosingTag(block, "server_name", server_name),
+					serverName: this.removeClosingTag(block, "server_name", block.params.server_name),
 					toolName: this.removeClosingTag(block, "tool_name", tool_name),
 					arguments: this.removeClosingTag(block, "arguments", mcp_arguments),
 				} satisfies ClineAskUseMcpServer)
@@ -3351,6 +2678,145 @@ export class Task
 					await this.ask("use_mcp_server", partialMessage, block.partial).catch(() => {})
 				}
 			break
+			case 'access_mcp_resource':
+				const uri: string | undefined = block.params.uri				
+				const partialMessage1 = JSON.stringify({
+					type: "access_mcp_resource",
+					serverName: this.removeClosingTag(block, "server_name", block.params.server_name),
+					uri: this.removeClosingTag(block, "uri", uri),
+				} satisfies ClineAskUseMcpServer)
+
+				if (this.shouldAutoApproveTool(block.name)) {
+					this.removeLastPartialMessageIfExistsWithType("ask", "use_mcp_server")
+					await this.say("use_mcp_server", partialMessage1, undefined, block.partial)
+				} else {
+					this.removeLastPartialMessageIfExistsWithType("say", "use_mcp_server")
+					await this.ask("use_mcp_server", partialMessage1, block.partial).catch(() => {})
+				}
+				break
+			case 'ask_followup_question':
+				const question: string | undefined = block.params.question
+				const optionsRaw: string | undefined = block.params.options
+
+				const sharedMessage = {
+					question: this.removeClosingTag(block, "question", question),
+					options: parsePartialArrayString(this.removeClosingTag(block, "options", optionsRaw)),
+				} satisfies ClineAskQuestion
+
+				await this.ask("followup", JSON.stringify(sharedMessage), block.partial).catch(() => {})
+				break
+			case 'new_task':
+				await this.ask("new_task", this.removeClosingTag(block, "context", block.params.context), block.partial).catch(() => {})
+				break
+			case 'condense':
+				await this.ask("condense", this.removeClosingTag(block, "context", block.params.context), block.partial).catch(() => {})
+				break
+			case 'plan_mode_respond':
+				const optionsRaw2: string | undefined = block.params.options
+				const sharedMessage2 = {
+					response: this.removeClosingTag(block, "response", block.params.response),
+					options: parsePartialArrayString(this.removeClosingTag(block, "options", optionsRaw2)),
+				} satisfies ClinePlanModeResponse				
+				await this.ask("plan_mode_respond", JSON.stringify(sharedMessage2), block.partial).catch(() => {})
+				break
+			case 'search_files':
+				const relDirPath: string | undefined = block.params.path
+				const regex: string | undefined = block.params.regex
+				const filePattern: string | undefined = block.params.file_pattern
+				const sharedMessageProps: ClineSayTool = {
+					tool: "searchFiles",
+					path: getReadablePath(cwd, this.removeClosingTag(block, "path", relDirPath)),
+					regex: this.removeClosingTag(block, "regex", regex),
+					filePattern: this.removeClosingTag(block, "file_pattern", filePattern),
+				}
+
+				const partialMessage5 = JSON.stringify({
+					...sharedMessageProps,
+					content: "",
+					operationIsLocatedInWorkspace: isLocatedInWorkspace(block.params.path),
+				} satisfies ClineSayTool)
+				if (this.shouldAutoApproveToolWithPath(block.name, block.params.path)) {
+					this.removeLastPartialMessageIfExistsWithType("ask", "tool")
+					await this.say("tool", partialMessage5, undefined, block.partial)
+				} else {
+					this.removeLastPartialMessageIfExistsWithType("say", "tool")
+					await this.ask("tool", partialMessage5, block.partial).catch(() => {})
+				}
+				break
+			case 'list_code_definition_names':
+				const sharedMessageProps15: ClineSayTool = {
+					tool: "listCodeDefinitionNames",
+					path: getReadablePath(cwd, this.removeClosingTag(block, "path",  block.params.path)),
+				}								
+				const partialMessage15 = JSON.stringify({
+					...sharedMessageProps15,
+					content: "",
+					operationIsLocatedInWorkspace: isLocatedInWorkspace(block.params.path),
+				} satisfies ClineSayTool)
+				if (this.shouldAutoApproveToolWithPath(block.name, block.params.path)) {
+					this.removeLastPartialMessageIfExistsWithType("ask", "tool")
+					await this.say("tool", partialMessage15, undefined, block.partial)
+				} else {
+					this.removeLastPartialMessageIfExistsWithType("say", "tool")
+					await this.ask("tool", partialMessage15, block.partial).catch(() => {})
+				}
+				break
+			case 'list_files':
+				const recursiveRaw: string | undefined = block.params.recursive
+				const recursive = recursiveRaw?.toLowerCase() === "true"
+				const sharedMessageProps14: ClineSayTool = {
+					tool: !recursive ? "listFilesTopLevel" : "listFilesRecursive",
+					path: getReadablePath(cwd, this.removeClosingTag(block, "path",  block.params.path)),
+				}
+				const partialMessage14 = JSON.stringify({
+					...sharedMessageProps14,
+					content: "",
+					operationIsLocatedInWorkspace: isLocatedInWorkspace(block.params.path),
+				} satisfies ClineSayTool)
+				if (this.shouldAutoApproveToolWithPath(block.name, block.params.path)) {
+					this.removeLastPartialMessageIfExistsWithType("ask", "tool")
+					await this.say("tool", partialMessage14, undefined, block.partial)
+				} else {
+					this.removeLastPartialMessageIfExistsWithType("say", "tool")
+					await this.ask("tool", partialMessage14, block.partial).catch(() => {})
+				}
+				break
+			case 'attempt_completion':
+				const lastMessage = this.clineMessages.at(-1)
+				const result: string | undefined = block.params.result
+				const command: string | undefined = block.params.command
+
+				if (command) {
+					// the attempt_completion text is done, now we're getting command
+					// remove the previous partial attempt_completion ask, replace with say, post state to webview, then stream command
+
+					// const secondLastMessage = this.clineMessages.at(-2)
+					// NOTE: we do not want to auto approve a command run as part of the attempt_completion tool
+					if (lastMessage && lastMessage.ask === "command") {
+						// update command
+						await this.ask("command", this.removeClosingTag(block, "command", command), block.partial).catch(
+							() => {},
+						)
+					} else {
+						// last message is completion_result
+						// we have command string, which means we have the result as well, so finish it (doesn't have to exist yet)
+						await this.say("completion_result", this.removeClosingTag(block, "result", result), undefined, false)
+						await this.saveCheckpoint(true)
+						await this.addNewChangesFlagToLastCompletionResultMessage()
+						await this.ask("command", this.removeClosingTag(block, "command", command), block.partial).catch(
+							() => {},
+						)
+					}
+				} else {
+					// no command, still outputting partial result
+					await this.say(
+						"completion_result",
+						this.removeClosingTag(block, "result", result),
+						undefined,
+						block.partial,
+					)
+				}	
+				break			
 		}
 	}
 
@@ -3362,7 +2828,435 @@ export class Task
 				return this.handleExecuteCommand(block)
 			case 'use_mcp_tool':
 				return this.handleUseMCPTools(block)
+			case 'access_mcp_resource':
+				return this.handleAccessMCPResource(block)
+			case 'ask_followup_question':
+				return this.handleAskFollowupQuestion(block)
+			case 'new_task':
+				return this.handleNewTask(block)
+			case 'condense':
+				return this.handleCondese(block)
+			case 'plan_mode_respond':
+				return this.handlePlanModeResponse(block)
+			case 'search_files':
+				return this.handleSearchFiles(block)
+			case 'list_code_definition_names':
+				return this.handListCodeDefinitionNames(block)
+			case 'list_files':
+				return this.handleListFiles(block)
+			case 'attempt_completion':
+				return this.handleAttemptCompletion(block)
 		}
+	}
+	
+	async handleAttemptCompletion(block: ToolUse) 
+	{
+		const result = block.params.result!
+		const command: string | undefined = block.params.command
+
+		const lastMessage = this.clineMessages.at(-1)
+
+
+		if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) 
+			showSystemNotification("Task Completed", result.replace(/\n/g, " "))
+		
+
+		let commandResult
+		if (command) {
+			if (lastMessage && lastMessage.ask !== "command") {
+				// haven't sent a command message yet so first send completion_result then command
+				await this.say("completion_result", result, undefined, false)
+				await this.saveCheckpoint(true)
+				await this.addNewChangesFlagToLastCompletionResultMessage()
+				telemetryService.captureTaskCompleted(this.taskId)
+			} else {
+				// we already sent a command message, meaning the complete completion message has also been sent
+				await this.saveCheckpoint(true)
+			}
+
+			// complete command message
+			const didApprove = await this.askApproval(block, "command", command)
+			if (!didApprove) {
+				return
+			}
+			const execCommandResult = await TestWrapper.executeCommandTool(command, this) 
+			if (typeof execCommandResult === 'string')
+			{
+				this.didRejectTool = true
+				this.pushToolResult(block, execCommandResult)
+				return
+			}
+			// user didn't reject, but the command may have output
+			commandResult = execCommandResult
+		} else {
+			await this.say("completion_result", result, undefined, false)
+			await this.saveCheckpoint(true)
+			await this.addNewChangesFlagToLastCompletionResultMessage()
+			telemetryService.captureTaskCompleted(this.taskId)
+		}
+
+		// we already sent completion_result says, an empty string asks relinquishes control over button and field
+		const { response, text, images } = await this.ask("completion_result", "", false)
+		if (response === "yesButtonClicked") {
+			this.pushToolResult(block, "") // signals to recursive loop to stop (for now this never happens since yesButtonClicked will trigger a new task)
+			return
+		}
+		await this.say("user_feedback", text ?? "", images)
+
+		const toolResults: (Anthropic.TextBlockParam | Anthropic.ImageBlockParam)[] = []
+		if (commandResult) {
+			if (typeof commandResult === "string") {
+				toolResults.push({
+					type: "text",
+					text: commandResult,
+				})
+			} else if (Array.isArray(commandResult)) {
+				toolResults.push(...commandResult)
+			}
+		}
+		toolResults.push({
+			type: "text",
+			text: `The user has provided feedback on the results. Consider their input to continue the task, and then attempt completion again.\n<feedback>\n${text}\n</feedback>`,
+		})
+		toolResults.push(...formatResponse.imageBlocks(images))
+		this.userMessageContent.push({
+			type: "text",
+			text: `${this.localeA.toolDescription(block)} Result:`,
+		})
+		this.userMessageContent.push(...toolResults)
+	}
+	
+	async handleListFiles(block: ToolUse) 
+	{
+		const relDirPath = block.params.path!
+		const recursiveRaw: string | undefined = block.params.recursive
+		const recursive = recursiveRaw?.toLowerCase() === "true"
+		const sharedMessageProps: ClineSayTool = {
+			tool: !recursive ? "listFilesTopLevel" : "listFilesRecursive",
+			path: getReadablePath(cwd, this.removeClosingTag(block, "path", relDirPath)),
+		}
+
+		this.taskModel.consecutiveMistakeCount = 0
+
+		const absolutePath = path.resolve(cwd, relDirPath)
+
+		const [files, didHitLimit] = await listFiles(absolutePath, recursive, 200)
+
+		const result = formatResponse.formatFilesList(
+			absolutePath,
+			files,
+			didHitLimit,
+			this.clineIgnoreController,
+		)
+		const completeMessage = JSON.stringify({
+			...sharedMessageProps,
+			content: result,
+			operationIsLocatedInWorkspace: isLocatedInWorkspace(block.params.path),
+		} satisfies ClineSayTool)
+		if (this.shouldAutoApproveToolWithPath(block.name, block.params.path)) {
+			this.removeLastPartialMessageIfExistsWithType("ask", "tool")
+			await this.say("tool", completeMessage, undefined, false)
+			this.consecutiveAutoApprovedRequestsCount++
+			telemetryService.captureToolUsage(this.taskId, block.name, true, true)
+		} else {
+			if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) 
+				showSystemNotification("Approval Required",	`Cline wants to view directory ${path.basename(absolutePath)}/`)
+			this.removeLastPartialMessageIfExistsWithType("say", "tool")
+			const didApprove = await this.askApproval(block, "tool", completeMessage)
+			if (!didApprove) {
+				telemetryService.captureToolUsage(this.taskId, block.name, false, false)
+				return
+			}
+			telemetryService.captureToolUsage(this.taskId, block.name, false, true)
+		}
+		this.pushToolResult(block, result)
+
+	}
+
+	async handListCodeDefinitionNames(block: ToolUse) 
+	{
+		const relDirPath = block.params.path!
+		const sharedMessageProps: ClineSayTool = {
+			tool: "listCodeDefinitionNames",
+			path: getReadablePath(cwd, this.removeClosingTag(block, "path", relDirPath)),
+		}
+
+		this.taskModel.consecutiveMistakeCount = 0
+
+		const absolutePath = path.resolve(cwd, relDirPath)
+		const result = await parseSourceCodeForDefinitionsTopLevel(
+			absolutePath,
+			this.clineIgnoreController,
+		)
+
+		const completeMessage = JSON.stringify({
+			...sharedMessageProps,
+			content: result,
+			operationIsLocatedInWorkspace: isLocatedInWorkspace(block.params.path),
+		} satisfies ClineSayTool)
+		if (this.shouldAutoApproveToolWithPath(block.name, block.params.path)) {
+			this.removeLastPartialMessageIfExistsWithType("ask", "tool")
+			await this.say("tool", completeMessage, undefined, false)
+			this.consecutiveAutoApprovedRequestsCount++
+			telemetryService.captureToolUsage(this.taskId, block.name, true, true)
+		} else {
+			if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) 
+				showSystemNotification("Approval Required",	`Cline wants to view source code definitions in ${path.basename(absolutePath)}/`)
+			this.removeLastPartialMessageIfExistsWithType("say", "tool")
+			const didApprove = await this.askApproval(block, "tool", completeMessage)
+			if (!didApprove) {
+				telemetryService.captureToolUsage(this.taskId, block.name, false, false)
+				return
+			}
+			telemetryService.captureToolUsage(this.taskId, block.name, false, true)
+		}
+		this.pushToolResult(block, result)
+
+	}
+	
+	async handleSearchFiles(block: ToolUse) 
+	{
+		const relDirPath = block.params.path!
+		const regex = block.params.regex!
+		const filePattern: string | undefined = block.params.file_pattern
+		const sharedMessageProps: ClineSayTool = {
+			tool: "searchFiles",
+			path: getReadablePath(cwd, this.removeClosingTag(block, "path", relDirPath)),
+			regex: this.removeClosingTag(block, "regex", regex),
+			filePattern: this.removeClosingTag(block, "file_pattern", filePattern),
+		}
+
+		const absolutePath = path.resolve(cwd, relDirPath)
+		const results = await regexSearchFiles(
+			cwd,
+			absolutePath,
+			regex,
+			filePattern,
+			this.clineIgnoreController,
+		)
+
+		const completeMessage = JSON.stringify({
+			...sharedMessageProps,
+			content: results,
+			operationIsLocatedInWorkspace: isLocatedInWorkspace(block.params.path),
+		} satisfies ClineSayTool)
+		if (this.shouldAutoApproveToolWithPath(block.name, block.params.path)) {
+			this.removeLastPartialMessageIfExistsWithType("ask", "tool")
+			await this.say("tool", completeMessage, undefined, false)
+			this.consecutiveAutoApprovedRequestsCount++
+			telemetryService.captureToolUsage(this.taskId, block.name, true, true)
+		} else {
+			if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) 
+				showSystemNotification("Approval Required",	`Cline wants to search files in ${path.basename(absolutePath)}/`)
+			this.removeLastPartialMessageIfExistsWithType("say", "tool")
+			const didApprove = await this.askApproval(block, "tool", completeMessage)
+			if (!didApprove) {
+				telemetryService.captureToolUsage(this.taskId, block.name, false, false)
+				return
+			}
+			telemetryService.captureToolUsage(this.taskId, block.name, false, true)
+		}
+		this.pushToolResult(block, results)
+
+	}
+	
+	async handlePlanModeResponse(block: ToolUse) 
+	{
+		const response: string | undefined = block.params.response
+		const optionsRaw: string | undefined = block.params.options
+		const sharedMessage = {
+			response: this.removeClosingTag(block, "response", response),
+			options: parsePartialArrayString(this.removeClosingTag(block, "options", optionsRaw)),
+		} satisfies ClinePlanModeResponse
+
+
+		// Store the number of options for telemetry
+		const options = parsePartialArrayString(optionsRaw || "[]")
+
+		this.isAwaitingPlanResponse = true
+		let { text, images } = await this.ask("plan_mode_respond", JSON.stringify(sharedMessage), false)
+		this.isAwaitingPlanResponse = false
+
+		// webview invoke sendMessage will send this marker in order to put webview into the proper state (responding to an ask) and as a flag to extension that the user switched to ACT mode.
+		if (text === "PLAN_MODE_TOGGLE_RESPONSE") {
+			text = ""
+		}
+
+		// Check if options contains the text response
+		if (optionsRaw && text && parsePartialArrayString(optionsRaw).includes(text)) {
+			// Valid option selected, don't show user message in UI
+			// Update last followup message with selected option
+			const lastPlanMessage = findLast(this.clineMessages, (m) => m.ask === "plan_mode_respond")
+			if (lastPlanMessage) {
+				lastPlanMessage.text = JSON.stringify({
+					...sharedMessage,
+					selected: text,
+				} satisfies ClinePlanModeResponse)
+				await this.saveClineMessagesAndUpdateHistory()
+				telemetryService.captureOptionSelected(this.taskId, options.length, "plan")
+			}
+		} else {
+			// Option not selected, send user feedback
+			if (text || images?.length) {
+				telemetryService.captureOptionsIgnored(this.taskId, options.length, "plan")
+				await this.say("user_feedback", text ?? "", images)
+			}
+		}
+
+		if (this.didRespondToPlanAskBySwitchingMode) {
+			this.pushToolResult(block, this.localeA.switchToActMode(text), images, true)
+		} else {
+			// if we didn't switch to ACT MODE, then we can just send the user_feedback message
+			this.pushToolResult(block, this.localeA.feedback(text), images)
+		}
+
+	}
+	
+	async handleCondese(block: ToolUse) 
+	{
+		const context = block.params.context!
+
+		if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) 
+			showSystemNotification("Cline wants to condense the conversation...", `Cline is suggesting to condense your conversation with: ${context}`)
+		
+		const { text, images } = await this.ask("condense", context, false)
+
+		// If the user provided a response, treat it as feedback
+		if (text || images?.length) {
+			await this.say("user_feedback", text ?? "", images)
+			this.pushToolResult(block, this.localeA.condenseFeedback(text ?? ''), images)
+		} else {
+			// If no response, the user accepted the condensed version
+			this.pushToolResult(block, this.localeA.condense)
+
+			const lastMessage = this.taskModel.apiConversationHistory[this.taskModel.apiConversationHistory.length - 1]
+			const summaryAlreadyAppended = lastMessage && lastMessage.role === "assistant"
+			const keepStrategy = summaryAlreadyAppended ? "lastTwo" : "none"
+
+			// clear the context history at this point in time
+			//this.conversationHistoryDeletedRange = this.contextManager.getNextTruncationRange(
+			//	this.taskModel.apiConversationHistory,
+			//	this.conversationHistoryDeletedRange,
+			//	keepStrategy, 
+			//)					'				//desabilitado aguardando o merge
+			await this.saveClineMessagesAndUpdateHistory()
+			//await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(
+			//	Date.now(),
+			//	await ensureTaskDirectoryExists(this.getContext(), this.taskId),
+			//)				 					//desabilitado aguardando o merge
+		}
+
+	}
+	
+	async handleNewTask(block: ToolUse) 
+	{
+		const context = block.params.context!
+		this.taskModel.consecutiveMistakeCount = 0
+
+		if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
+			showSystemNotification("Cline wants to start a new task...", `Cline is suggesting to start a new task with: ${context}`)
+		}
+
+		const { text, images } = await this.ask("new_task", context, false)
+
+		// If the user provided a response, treat it as feedback
+		if (text || images?.length) 
+		{
+			await this.say("user_feedback", text ?? "", images)
+			this.pushToolResult(block, this.localeA.newTaskWithFeedback(text ?? ''), images, true)
+		}
+		else 
+		{
+			// If no response, the user clicked the "Create New Task" button
+			this.pushToolResult(block, this.localeA.newTask)
+		}
+	}
+	
+	async handleAskFollowupQuestion(block: ToolUse) 
+	{
+		const question = block.params.question!
+		const optionsRaw: string | undefined = block.params.options
+		const sharedMessage = {
+			question: this.removeClosingTag(block, "question", question),
+			options: parsePartialArrayString(this.removeClosingTag(block, "options", optionsRaw)),
+		} satisfies ClineAskQuestion
+
+		if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) 
+		{
+			showSystemNotification("Cline has a question...", question.replace(/\n/g, " "))
+		}
+
+		// Store the number of options for telemetry
+		const options = parsePartialArrayString(optionsRaw || "[]")
+
+		const { text, images } = await this.ask("followup", JSON.stringify(sharedMessage), false)
+
+		// Check if options contains the text response
+		if (optionsRaw && text && parsePartialArrayString(optionsRaw).includes(text)) {
+			// Valid option selected, don't show user message in UI
+			// Update last followup message with selected option
+			const lastFollowupMessage = findLast(this.clineMessages, (m) => m.ask === "followup")
+			if (lastFollowupMessage) {
+				lastFollowupMessage.text = JSON.stringify({
+					...sharedMessage,
+					selected: text,
+				} satisfies ClineAskQuestion)
+				await this.saveClineMessagesAndUpdateHistory()
+				telemetryService.captureOptionSelected(this.taskId, options.length, "act")
+			}
+		} else {
+			// Option not selected, send user feedback
+			telemetryService.captureOptionsIgnored(this.taskId, options.length, "act")
+			await this.say("user_feedback", text ?? "", images)
+		}
+
+		this.pushToolResult(block, `<answer>\n${text}\n</answer>`, images, true)
+
+	}
+
+	async handleAccessMCPResource(block: ToolUse) 
+	{
+		const server_name= block.params.server_name!
+		const uri = block.params.uri!
+
+		this.taskModel.consecutiveMistakeCount = 0
+		const completeMessage = JSON.stringify({
+			type: "access_mcp_resource",
+			serverName: server_name,
+			uri,
+		} satisfies ClineAskUseMcpServer)
+
+		if (this.shouldAutoApproveTool(block.name)) {
+			this.removeLastPartialMessageIfExistsWithType("ask", "use_mcp_server")
+			await this.say("use_mcp_server", completeMessage, undefined, false)
+			this.consecutiveAutoApprovedRequestsCount++
+		} else {
+			if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) 
+				showSystemNotification("Approval Required",	`Cline wants to access ${uri} on ${server_name}`)
+
+			this.removeLastPartialMessageIfExistsWithType("say", "use_mcp_server")
+			const didApprove = await this.askApproval(block, "use_mcp_server", completeMessage)
+			if (!didApprove)
+			{
+				return
+			}
+		}
+
+		// now execute the tool
+		await this.say("mcp_server_request_started")
+		const resourceResult = await this.mcpHub.readResource(server_name, uri)
+		const resourceResultPretty =
+			resourceResult?.contents
+				.map((item) => {
+					if (item.text) {
+						return item.text
+					}
+					return ""
+				})
+				.filter(Boolean)
+				.join("\n\n") || "(Empty response)"
+		await this.say("mcp_server_response", resourceResultPretty)
+		this.pushToolResult(block, resourceResultPretty)
 	}
 
 	async registerErrorMCP(block:ToolUse) 
@@ -3525,6 +3419,22 @@ export class Task
 		}	
     }
 
+
+	async addNewChangesFlagToLastCompletionResultMessage() 
+	{
+		// Add newchanges flag if there are new changes to the workspace
+
+		const hasNewChanges = await this.doesLatestTaskCompletionHaveNewChanges()
+		const lastCompletionResultMessage = findLast(this.clineMessages, (m) => m.say === "completion_result")
+		if (
+			lastCompletionResultMessage &&
+			hasNewChanges &&
+			!lastCompletionResultMessage.text?.endsWith(COMPLETION_RESULT_CHANGES_FLAG)
+		) {
+			lastCompletionResultMessage.text += COMPLETION_RESULT_CHANGES_FLAG
+		}
+		await this.saveClineMessagesAndUpdateHistory()
+	}	
 
 	async loadContext(userContent: Anthropic.ContentBlockParam[]) {
 		return await Promise.all([

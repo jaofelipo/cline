@@ -21,7 +21,7 @@ import { LiteLlmHandler } from "./providers/litellm"
 import { AskSageHandler } from "./providers/asksage"
 import { XAIHandler } from "./providers/xai"
 import { SambanovaHandler } from "./providers/sambanova"
-import { GeminiHandler } from "../umbit/llm/providers/GeminiHandler"
+import { GeminiHandler } from "./providers/gemini"
 
 export interface ApiHandler {
 	createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream
@@ -51,7 +51,7 @@ export function buildApiHandler(configuration: ApiConfiguration): ApiHandler {
 		case "lmstudio":
 			return new LmStudioHandler(options)
 		case "gemini":
-			return new GeminiHandler(options.apiModelId ?? "", options.geminiApiKey ?? "")
+			return new GeminiHandler(options)
 		case "openai-native":
 			return new OpenAiNativeHandler(options)
 		case "deepseek":
