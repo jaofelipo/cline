@@ -91,12 +91,12 @@ import { getGlobalState } from "../storage/state"
 import { parseSlashCommands } from ".././slash-commands"
 import WorkspaceTracker from "../../integrations/workspace/WorkspaceTracker"
 import { McpHub } from "../../services/mcp/McpHub"
-import { TaskModel } from "@/umbit/task/TaskModel"
 import { getTranslation } from "@/locale/locale"
 import { updateCost } from "@/utils/llmUtils"
 import { getEnvironmentDetails } from "@/utils/EnvironmentDetails"
 import { TestWrapper } from "@/services/test/TestMode"
 import { resetTimer } from "@/utils/delayUtils"
+import { TaskModel } from "./TaskModel"
 
 export const cwd =
 	vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? path.join(os.homedir(), "Desktop") // may or may not exist but fs checking existence would immediately ask for permission which would be bad UX, need to come up with a better solution
