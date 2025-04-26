@@ -39,7 +39,13 @@ export class TerminalProcess extends EventEmitter<TerminalProcessEvents>
 
 	async run(command?: string) 
 	{
+		const resultPromisse = new Promise<string>((resolve, reject) => {
+			this.once("continue", () => resolve(this.fullOutput)),
+			this.once("error", (error) => reject(error))
+		})
+
 		this.command = (command) ? command : this.command
+		
 		// docs recommend waiting 3s for shell integration to activate, but pWaitFor check before start the timer, if condition trully -> resolve/reject 
 		await pWaitFor(() => this.terminal.shellIntegration !== undefined, { timeout: 4000, interval:100, before:true })
 
@@ -85,9 +91,10 @@ export class TerminalProcess extends EventEmitter<TerminalProcessEvents>
 
 			this.emitRemainingBufferIfListening()
 
-			this.hotTimer = resetTimer(this.hotTimer)//this.clearAndCreateTimer(this.hotTimer,  undefined)
+			this.hotTimer = resetTimer(this.hotTimer)
 			this.emit("completed")
 			this.emit("continue")
+
 		}
 		else  // terminals without shell integration, we can't know when the command completes, so just emit the continue event 
 		{
@@ -97,11 +104,7 @@ export class TerminalProcess extends EventEmitter<TerminalProcessEvents>
 			this.emit("no_shell_integration")
 		}
 
-		return new Promise<string>((resolve, reject) => {
-			this.once("continue", () => resolve(this.fullOutput))
-			this.once("error", (error) => reject(error))
-		})
-
+		return resultPromisse
 	}
 
 	private emitRemainingBufferIfListening() 
@@ -199,24 +202,4 @@ export class TerminalProcess extends EventEmitter<TerminalProcessEvents>
 		}
 		return lines.join("\n")
 	}
-}
-
-export type TerminalProcessResultPromise = TerminalProcess & Promise<void>
-
-// this lets us create a mixin of both a TerminalProcess and a Promise: https://github.com/sindresorhus/execa/blob/main/lib/methods/promise.js
-export function mergePromise(process:TerminalProcess, promise?:Promise<void>): TerminalProcessResultPromise 
-{
-	promise = promise ?? new Promise<void>((resolve, reject) => {
-		process.once("continue", () => resolve())
-		process.once("error", (error) => reject(error))
-	})
-
-	const nativePromisePrototype = (async () => {})().constructor.prototype
-	for (const method of ["then", "catch", "finally"] as const) 
-	{
-        const descriptor = Reflect.getOwnPropertyDescriptor(nativePromisePrototype, method);
-        if (descriptor) 
-            Reflect.defineProperty(process, method, {...descriptor, value: descriptor.value.bind(promise)})
-	}
-	return process as TerminalProcessResultPromise
 }
