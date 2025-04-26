@@ -3,7 +3,8 @@
  * @param text String potentially containing incorrectly escaped HTML entities from AI models
  * @returns String with HTML entities converted back to normal characters
  */
-export function fixModelHtmlEscaping(text: string): string {
+export function fixModelHtmlEscaping(text: string): string 
+{
 	return text
 		.replace(/&gt;/g, ">")
 		.replace(/&lt;/g, "<")
@@ -33,5 +34,3 @@ export 	function removeFromLastLine(data:string, regex:RegExp = /[%$#>]\s*$/)
 export const dateTimeformatter = 
 	new Intl.DateTimeFormat(undefined, {year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric", hour12: true})
 export const dateTimeformatterTimeZone = dateTimeformatter.resolvedOptions().timeZone
-
-
