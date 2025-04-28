@@ -14,7 +14,8 @@ export function toJSON({name, params, partial}:ToolUse, content?:string, overrid
 				path: getReadablePath(cwd || '', StringUtils.removeTag("path", params.path, partial)),
 				regex: StringUtils.removeTag("regex", params.regex, partial),
 				filePattern: StringUtils.removeTag("file_pattern", params.file_pattern, partial),
-				content: content ?? ''
+				content: content ?? '',
+				operationIsLocatedInWorkspace: isLocatedInWorkspace(params.path),
 			} satisfies ClineSayTool)
 		case "use_mcp_tool":
 			return JSON.stringify({

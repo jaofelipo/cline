@@ -1,146 +1,4 @@
-/**
- * Attempts a line-trimmed fallback match for the given search content in the original content.
- * It tries to match `searchContent` lines against a block of lines in `originalContent` starting
- * from `lastProcessedIndex`. Lines are matched by trimming leading/trailing whitespace and ensuring
- * they are identical afterwards.
- *
- * Returns [matchIndexStart, matchIndexEnd] if found, or false if not found.
- */
-function lineTrimmedFallbackMatch(originalContent: string, searchContent: string, startIndex: number): [number, number] | false {
-	// Split both contents into lines
-	const originalLines = originalContent.split("\n")
-	const searchLines = searchContent.split("\n")
-
-	// Trim trailing empty line if exists (from the trailing \n in searchContent)
-	if (searchLines[searchLines.length - 1] === "") {
-		searchLines.pop()
-	}
-
-	// Find the line number where startIndex falls
-	let startLineNum = 0
-	let currentIndex = 0
-	while (currentIndex < startIndex && startLineNum < originalLines.length) {
-		currentIndex += originalLines[startLineNum].length + 1 // +1 for \n
-		startLineNum++
-	}
-
-	// For each possible starting position in original content
-	for (let i = startLineNum; i <= originalLines.length - searchLines.length; i++) {
-		let matches = true
-
-		// Try to match all search lines from this position
-		for (let j = 0; j < searchLines.length; j++) {
-			const originalTrimmed = originalLines[i + j].trim()
-			const searchTrimmed = searchLines[j].trim()
-
-			if (originalTrimmed !== searchTrimmed) {
-				matches = false
-				break
-			}
-		}
-
-		// If we found a match, calculate the exact character positions
-		if (matches) {
-			// Find start character index
-			let matchStartIndex = 0
-			for (let k = 0; k < i; k++) {
-				matchStartIndex += originalLines[k].length + 1 // +1 for \n
-			}
-
-			// Find end character index
-			let matchEndIndex = matchStartIndex
-			for (let k = 0; k < searchLines.length; k++) {
-				matchEndIndex += originalLines[i + k].length + 1 // +1 for \n
-			}
-
-			return [matchStartIndex, matchEndIndex]
-		}
-	}
-
-	return false
-}
-
-/**
- * Attempts to match blocks of code by using the first and last lines as anchors.
- * This is a third-tier fallback strategy that helps match blocks where we can identify
- * the correct location by matching the beginning and end, even if the exact content
- * differs slightly.
- *
- * The matching strategy:
- * 1. Only attempts to match blocks of 3 or more lines to avoid false positives
- * 2. Extracts from the search content:
- *    - First line as the "start anchor"
- *    - Last line as the "end anchor"
- * 3. For each position in the original content:
- *    - Checks if the next line matches the start anchor
- *    - If it does, jumps ahead by the search block size
- *    - Checks if that line matches the end anchor
- *    - All comparisons are done after trimming whitespace
- *
- * This approach is particularly useful for matching blocks of code where:
- * - The exact content might have minor differences
- * - The beginning and end of the block are distinctive enough to serve as anchors
- * - The overall structure (number of lines) remains the same
- *
- * @param originalContent - The full content of the original file
- * @param searchContent - The content we're trying to find in the original file
- * @param startIndex - The character index in originalContent where to start searching
- * @returns A tuple of [startIndex, endIndex] if a match is found, false otherwise
- */
-function blockAnchorFallbackMatch(originalContent: string, searchContent: string, startIndex: number): [number, number] | false {
-	const originalLines = originalContent.split("\n")
-	const searchLines = searchContent.split("\n")
-
-	// Only use this approach for blocks of 3+ lines
-	if (searchLines.length < 3) {
-		return false
-	}
-
-	// Trim trailing empty line if exists
-	if (searchLines[searchLines.length - 1] === "") {
-		searchLines.pop()
-	}
-
-	const firstLineSearch = searchLines[0].trim()
-	const lastLineSearch = searchLines[searchLines.length - 1].trim()
-	const searchBlockSize = searchLines.length
-
-	// Find the line number where startIndex falls
-	let startLineNum = 0
-	let currentIndex = 0
-	while (currentIndex < startIndex && startLineNum < originalLines.length) {
-		currentIndex += originalLines[startLineNum].length + 1
-		startLineNum++
-	}
-
-	// Look for matching start and end anchors
-	for (let i = startLineNum; i <= originalLines.length - searchBlockSize; i++) {
-		// Check if first line matches
-		if (originalLines[i].trim() !== firstLineSearch) {
-			continue
-		}
-
-		// Check if last line matches at the expected position
-		if (originalLines[i + searchBlockSize - 1].trim() !== lastLineSearch) {
-			continue
-		}
-
-		// Calculate exact character positions
-		let matchStartIndex = 0
-		for (let k = 0; k < i; k++) {
-			matchStartIndex += originalLines[k].length + 1
-		}
-
-		let matchEndIndex = matchStartIndex
-		for (let k = 0; k < searchBlockSize; k++) {
-			matchEndIndex += originalLines[i + k].length + 1
-		}
-
-		return [matchStartIndex, matchEndIndex]
-	}
-
-	return false
-}
+import { trimLines } from "@/utils/array"
 
 /**
  * This function reconstructs the file content by applying a streamed diff (in a
@@ -200,171 +58,206 @@ function blockAnchorFallbackMatch(originalContent: string, searchContent: string
  * - If the search block cannot be matched using any of the available matching strategies,
  *   an error is thrown.
  */
-export async function constructNewFileContent(
-	diffContent: string,
-	originalContent: string,
-	isFinal: boolean,
-	version: "v1" | "v2" = "v2",
-): Promise<string> {
-	const constructor = constructNewFileContentVersionMapping[version]
-	if (!constructor) {
-		throw new Error(`Invalid version '${version}' for file content constructor`)
-	}
-	return constructor(diffContent, originalContent, isFinal)
-}
 
-const constructNewFileContentVersionMapping: Record<
-	string,
-	(diffContent: string, originalContent: string, isFinal: boolean) => Promise<string>
-> = {
+const map: Record<string, (diffContent: string, content: string, isFinal: boolean) => Promise<string>> = 
+{
 	v1: constructNewFileContentV1,
 	v2: constructNewFileContentV2,
 } as const
 
+export async function constructNewFileContent(diffContent: string, content: string, isFinal: boolean, version: "v1" | "v2" = "v2"): Promise<string> 
+{
+	const constructor =  map[version]
+	if (!constructor) 
+		throw new Error(`Invalid version '${version}' for file content constructor`)
+	return constructor(diffContent, content, isFinal)
+}
+
 /**
  * @deprecated
  */
-async function constructNewFileContentV1(diffContent: string, originalContent: string, isFinal: boolean): Promise<string> {
+export async function constructNewFileContentV1(diffContent:string, content:string, isFinal:boolean):Promise<string> 
+{
 	let result = ""
-	let lastProcessedIndex = 0
+	let lastValidIndex = 0
+	let searchContent = ''
+	let mode = undefined //undefined is the default mode, true is in searching capture mode, e false in replacing capture mode
+	let matchStart = -1
+	let matchEnd = -1
 
-	let currentSearchContent = ""
-	let currentReplaceContent = ""
-	let inSearch = false
-	let inReplace = false
+	let diffLines = diffContent.split("\n")
+	const lastLine = diffLines[diffLines.length - 1]
 
-	let searchMatchIndex = -1
-	let searchEndIndex = -1
+	if (lastLine && lastLine !== "<<<<<<< SEARCH" && lastLine !== "=======" && lastLine !== ">>>>>>> REPLACE") 
+		diffLines.pop()
 
-	let lines = diffContent.split("\n")
-
-	// If the last line looks like a partial marker but isn't recognized,
-	// remove it because it might be incomplete.
-	const lastLine = lines[lines.length - 1]
-	if (
-		lines.length > 0 &&
-		(lastLine.startsWith("<") || lastLine.startsWith("=") || lastLine.startsWith(">")) &&
-		lastLine !== "<<<<<<< SEARCH" &&
-		lastLine !== "=======" &&
-		lastLine !== ">>>>>>> REPLACE"
-	) {
-		lines.pop()
-	}
-
-	for (const line of lines) {
-		if (line === "<<<<<<< SEARCH") {
-			inSearch = true
-			currentSearchContent = ""
-			currentReplaceContent = ""
-			continue
-		}
-
-		if (line === "=======") {
-			inSearch = false
-			inReplace = true
-
-			// Remove trailing linebreak for adding the === marker
-			// if (currentSearchContent.endsWith("\r\n")) {
-			// 	currentSearchContent = currentSearchContent.slice(0, -2)
-			// } else if (currentSearchContent.endsWith("\n")) {
-			// 	currentSearchContent = currentSearchContent.slice(0, -1)
-			// }
-
-			if (!currentSearchContent) {
-				// Empty search block
-				if (originalContent.length === 0) {
-					// New file scenario: nothing to match, just start inserting
-					searchMatchIndex = 0
-					searchEndIndex = 0
-				} else {
-					// Complete file replacement scenario: treat the entire file as matched
-					searchMatchIndex = 0
-					searchEndIndex = originalContent.length
-				}
-			} else {
-				// Add check for inefficient full-file search
-				// if (currentSearchContent.trim() === originalContent.trim()) {
-				// 	throw new Error(
-				// 		"The SEARCH block contains the entire file content. Please either:\n" +
-				// 			"1. Use an empty SEARCH block to replace the entire file, or\n" +
-				// 			"2. Make focused changes to specific parts of the file that need modification.",
-				// 	)
-				// }
-
-				// Exact search match scenario
-				const exactIndex = originalContent.indexOf(currentSearchContent, lastProcessedIndex)
-				if (exactIndex !== -1) {
-					searchMatchIndex = exactIndex
-					searchEndIndex = exactIndex + currentSearchContent.length
-				} else {
-					// Attempt fallback line-trimmed matching
-					const lineMatch = lineTrimmedFallbackMatch(originalContent, currentSearchContent, lastProcessedIndex)
-					if (lineMatch) {
-						;[searchMatchIndex, searchEndIndex] = lineMatch
-					} else {
-						// Try block anchor fallback for larger blocks
-						const blockMatch = blockAnchorFallbackMatch(originalContent, currentSearchContent, lastProcessedIndex)
-						if (blockMatch) {
-							;[searchMatchIndex, searchEndIndex] = blockMatch
-						} else {
-							throw new Error(
-								`The SEARCH block:\n${currentSearchContent.trimEnd()}\n...does not match anything in the file or was searched out of order in the provided blocks.`,
-							)
-						}
-					}
-				}
-			}
-
-			// Output everything up to the match location
-			result += originalContent.slice(lastProcessedIndex, searchMatchIndex)
-			continue
-		}
-
-		if (line === ">>>>>>> REPLACE") {
-			// Finished one replace block
-
-			// // Remove the artificially added linebreak in the last line of the REPLACE block
-			// if (result.endsWith("\r\n")) {
-			// 	result = result.slice(0, -2)
-			// } else if (result.endsWith("\n")) {
-			// 	result = result.slice(0, -1)
-			// }
-
-			// Advance lastProcessedIndex to after the matched section
-			lastProcessedIndex = searchEndIndex
-
-			// Reset for next block
-			inSearch = false
-			inReplace = false
-			currentSearchContent = ""
-			currentReplaceContent = ""
-			searchMatchIndex = -1
-			searchEndIndex = -1
-			continue
-		}
-
-		// Accumulate content for search or replace
-		// (currentReplaceContent is not being used for anything right now since we directly append to result.)
-		// (We artificially add a linebreak since we split on \n at the beginning. In order to not include a trailing linebreak in the final search/result blocks we need to remove it before using them. This allows for partial line matches to be correctly identified.)
-		// NOTE: search/replace blocks must be arranged in the order they appear in the file due to how we build the content using lastProcessedIndex. We also cannot strip the trailing newline since for non-partial lines it would remove the linebreak from the original content. (If we remove end linebreak from search, then we'd also have to remove it from replace but we can't know if it's a partial line or not since the model may be using the line break to indicate the end of the block rather than as part of the search content.) We require the model to output full lines in order for our fallbacks to work as well.
-		if (inSearch) {
-			currentSearchContent += line + "\n"
-		} else if (inReplace) {
-			currentReplaceContent += line + "\n"
-			// Output replacement lines immediately if we know the insertion point
-			if (searchMatchIndex !== -1) {
-				result += line + "\n"
-			}
+	for (const diffLine of diffLines) 
+	{
+		switch (diffLine)
+		{
+			case "<<<<<<< SEARCH":
+				searchContent = ""
+				mode = true
+				break
+			case "=======":
+				[matchStart, matchEnd] = findMatch(content, searchContent, lastValidIndex)
+				result += content.slice(lastValidIndex, matchStart) // Output everything up to the match location
+				mode = false
+				break
+			case ">>>>>>> REPLACE":
+				lastValidIndex = matchEnd // Advance lastValidIndex after the matched section
+				mode = undefined
+				break
+			default:
+				if (mode) // in searching mode
+					searchContent += diffLine + "\n"
+				else if (!mode && matchStart !== -1)
+					result += diffLine + "\n"							
 		}
 	}
+	return (isFinal) ? (result + content.slice(Math.min(lastValidIndex, content.length))).trim() : result.trim() // If final chunk, append remaining content
+}
 
-	// If this is the final chunk, append any remaining original content
-	if (isFinal && lastProcessedIndex < originalContent.length) {
-		result += originalContent.slice(lastProcessedIndex)
+
+/**
+ * Finds the line number character index in a multi-line array.
+ * @param lines Array of strings representing the lines
+ * @param index Character index to locate
+ * @returns line number 
+ */
+function locateIndexInLines(lines:string[], index: number)
+{
+	let currentIndex = 0, lineNumber = 0
+	while (currentIndex < index && lineNumber < lines.length) 
+	{
+		currentIndex += lines[lineNumber].length + 1
+		lineNumber++
 	}
+	return currentIndex > index ? lineNumber - 1 : lineNumber
+}
 
+function getStringRangeLength(lines:string[], start:number, length:number)
+{
+	let result = 0
+	for (let i = 0; i < length; i++) // Find start character index
+	{
+		result += lines[start + i].length + 1 // +1 for \n
+	}
 	return result
 }
+
+function findMatch(content:string, searchContent:string, lastValidIndex:number): [number, number] 
+{
+	if (!searchContent) 
+		return [0, (content.length === 0) ? 0 : content.length] // New file (nothing to match, insert only) or Complete file replacement
+
+	let matchStart = content.indexOf(searchContent, lastValidIndex) 
+	if (matchStart !== -1) // Exact search match scenario
+		return [matchStart, matchStart + searchContent.length]
+
+	let matchEnd = 0;
+	[matchStart, matchEnd] = lineTrimmedFallbackMatch(content, searchContent, lastValidIndex)
+	if (matchStart === -1 || matchEnd === -1) 
+		[matchStart, matchEnd] = blockAnchorFallbackMatch(content, searchContent, lastValidIndex)
+	if (matchStart === -1 || matchEnd === -1) 
+		throw new Error(`The SEARCH block:\n${searchContent.trimEnd()}\n...does not match anything in the file.`)
+
+	return [matchStart, matchEnd]
+}
+
+
+/**
+ * Attempts a line-trimmed fallback match for the given search content in the original content.
+ * It tries to match `searchContent` lines against a block of lines in `originalContent` starting
+ * from `lastProcessedIndex`. Lines are matched by trimming leading/trailing whitespace and ensuring
+ * they are identical afterwards.
+ *
+ * Returns [matchIndexStart, matchIndexEnd] if found, or false if not found.
+ */
+export function lineTrimmedFallbackMatch(content:string, searchContent:string, startIndex:number): [number, number] 
+{
+	const lines = content.split("\n") 
+	const searchLines = trimLines(searchContent.split("\n"), false, true) //trim empty lines at the end
+	let startLineNumber = locateIndexInLines(lines, startIndex) // Find the line number where startIndex falls
+	
+	// For each possible starting position in original content
+	for (let i = startLineNumber; i <= lines.length - searchLines.length; i++) 
+	{
+		const matches = searchLines.every((searchLine, j) => lines[i + j].trim() === searchLine.trim())
+
+		if (matches)  // If we found a match, calculate the exact character positions
+		{
+			let start = getStringRangeLength(lines, 0, i)
+			let end = start + getStringRangeLength(lines, i, searchLines.length)
+			return [start, Math.min(end, content.length)]
+		}
+	}
+	return [-1, -1]
+}
+
+/**
+ * Attempts to match blocks of code by using the first and last lines as anchors.
+ * This is a third-tier fallback strategy that helps match blocks where we can identify
+ * the correct location by matching the beginning and end, even if the exact content
+ * differs slightly.
+ *
+ * The matching strategy:
+ * 1. Only attempts to match blocks of 3 or more lines to avoid false positives
+ * 2. Extracts from the search content:
+ *    - First line as the "start anchor"
+ *    - Last line as the "end anchor"
+ * 3. For each position in the original content:
+ *    - Checks if the next line matches the start anchor
+ *    - If it does, jumps ahead by the search block size
+ *    - Checks if that line matches the end anchor
+ *    - All comparisons are done after trimming whitespace
+ *
+ * This approach is particularly useful for matching blocks of code where:
+ * - The exact content might have minor differences
+ * - The beginning and end of the block are distinctive enough to serve as anchors
+ * - The overall structure (number of lines) remains the same
+ *
+ * @param content - The full content of the original file
+ * @param searchContent - The content we're trying to find in the original file
+ * @param startIndex - The character index in originalContent where to start searching
+ * @returns A tuple of [startIndex, endIndex] if a match is found, false otherwise
+ */
+export function blockAnchorFallbackMatch(content:string, searchContent:string, startIndex: number): [number, number] 
+{
+	const searchLines = trimLines(searchContent.split("\n"), false, true)
+
+	if (searchLines.length >= 3) // Only use this approach for blocks of 3+ lines
+	{
+		const lines = content.split("\n")
+		const firstLineSearch = searchLines[0].trim()
+		const lastLineSearch = searchLines[searchLines.length - 1].trim()
+
+		let startLineIndex = locateIndexInLines(lines, startIndex) // Find the line number where startIndex falls
+
+		for (let i = startLineIndex; i <= lines.length - searchLines.length; i++)  // Look for matching start and end anchors
+		{
+			if (lines[i].trim() === firstLineSearch) // Check if first line matches
+			{
+				if (lines[i + searchLines.length - 1].trim() === lastLineSearch) // Check if last line matches at the expected position
+				{
+					let matchStartIndex = getStringRangeLength(lines, 0, i) // Calculate exact character positions
+					let matchEndIndex = matchStartIndex
+					for (let k = 0; k < searchLines.length; k++) 
+					{
+						matchEndIndex += lines[i + k].length;
+						if (k < searchLines.length - 1 || (i + k) < lines.length - 1)  //If not last line the search block or the orginal block
+							matchEndIndex += 1;
+					}
+					return [matchStartIndex, matchEndIndex]
+				}
+			}
+		}
+	}	
+	return [-1,-1]
+}
+
+
+
 
 enum ProcessingState {
 	Idle = 0,
