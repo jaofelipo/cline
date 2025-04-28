@@ -41,6 +41,8 @@ export const ptBr:Labels = {
         toolUsedErrorInterruption: "\n\n[Response interrupted by a tool use result. Only one tool may be used at a time and should be placed at the end of the message.]",
         interruptedByApiErrorOrUser: (isError:boolean=false) => `\n\n[Response interrupted by ${(isError) ? "API Error" : "user feedback"}]`,
         toolError: (error:string) => `The tool execution failed with the following error:\n<error>\n${error}\n</error>`,
+        clineIgnoreError: (path: string) => ptBr.cline.toolError(
+            `Access to ${path} is blocked by the .clineignore file settings. You must try to continue in the task without using this file, or ask the user to update the .clineignore file.`),
         tooManyMistakes: (feedback?: string) =>
             `You seem to be having trouble proceeding. The user has provided the following feedback to help guide you:\n<feedback>\n${feedback}\n</feedback>`,
         noToolsUsed: () => "[ERROR] You did not use a tool in your previous response! Please retry with a tool use.\n\n" +
@@ -67,6 +69,14 @@ export const ptBr:Labels = {
         newTask:"The user has created a new task with the provided context.",
         newTaskWithFeedback: (text:string) => `The user provided feedback instead of creating a new task:\n<feedback>\n${text}\n</feedback>`,
         condenseFeedback: (text:string) => `The user provided feedback on the condensed conversation summary:\n<feedback>\n${text}\n</feedback>`,        
+        diffError: (error:Error, relPath: string, originalContent: string | undefined) => 
+            ptBr.cline.toolError(`${(error as Error)?.message}\n\n This is likely because the SEARCH block content doesn't match ` + 
+            `exactly with what's in the file, or if you used multiple SEARCH/REPLACE blocks they may not have been in the order they appear in the file.\n\n` + 
+            `The file was reverted to its original state:\n\n<file_content path="${relPath.toPosix()}">\n${originalContent}\n</file_content>\n\n` +
+            `Now that you have the latest state of the file, try the operation again with fewer, more precise SEARCH blocks. For large files especially, it may ` + 
+            `be prudent to try to limit yourself to <5 SEARCH/REPLACE blocks at a time, then wait for the user to respond with the result of the operation before ` + 
+            `following up with another replace_in_file call to make additional edits.\n(If you run into this error 3 times in a row, you may use the write_to_file ` + 
+            `tool as a fallback.)`),
         condense: `The user has accepted the condensed conversation summary you generated. This summary covers important details of the historical conversation with the user which has been truncated.\n<explicit_instructions type="condense_response">It's crucial that you respond by ONLY asking the user what you should work on next. You should NOT take any initiative or make any assumptions about continuing with work. For example you should NOT suggest file changes or attempt to read any files.\nWhen asking the user what you should work on next, you can reference information in the summary which was just generated. However, you should NOT reference information outside of what's contained in the summary for this response. Keep this response CONCISE.</explicit_instructions>`,
         switchToActMode: (text?:string) => `[The user has switched to ACT MODE, so you may now proceed with the task.]` + text ? `\n\nThe user also provided the following message when switching to ACT MODE:\n<user_message>\n${text}\n</user_message>` : "",
         commandRunning: (output, full) => `O comando ainda está em execução no terminal do usuário.${(output.length > 0) ? `\nAqui está a saída até agora:\n${output}` : ""}

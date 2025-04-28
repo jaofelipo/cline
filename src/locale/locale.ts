@@ -79,6 +79,7 @@ export interface Labels {
         toolUsedErrorInterruption:string
         interruptedByApiErrorOrUser: (isError:boolean) => string
         toolError: (error:string) => string
+        clineIgnoreError: (path: string) => string,
         tooManyMistakes: (feedback?: string) => string
         noToolsUsed: () =>  string
         interruptTask:string
@@ -110,6 +111,7 @@ export interface Labels {
         newTaskWithFeedback: (text:string) => string
         condenseFeedback: (text:string) => string
         condense: string
+        diffError: (error:Error, relPath: string, originalContent: string | undefined) => string
         switchToActMode: (text?:string) => string
         feedback: (text?:string) => string
         messages:{

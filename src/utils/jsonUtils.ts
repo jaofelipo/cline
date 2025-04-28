@@ -1,7 +1,7 @@
 import { cwd } from "@/core/task";
 import { ToolParamName, ToolUse } from "../core/assistant-message";
 import { ClineAskUseMcpServer, ClineSayTool } from "../shared/ExtensionMessage";
-import { getReadablePath } from "./path";
+import { getReadablePath, isLocatedInWorkspace } from "./path";
 
 
 export function toJSON({name, params, partial}:ToolUse, content?:string, overrideTool?:any):string
@@ -52,10 +52,10 @@ function toolToJSON(tool: "editedExistingFile" | "newFileCreated" | "readFile"  
 	return JSON.stringify({
 		tool,
 		path: getReadablePath(cwd || '', StringUtils.removeTag("path", path, partial)),
-		content
+		content,
+		operationIsLocatedInWorkspace: isLocatedInWorkspace(path)
 	} satisfies ClineSayTool)
 }
-
 
 export function parseJSON(text?:string)
 {

@@ -34,3 +34,8 @@ export 	function removeFromLastLine(data:string, regex:RegExp = /[%$#>]\s*$/)
 export const dateTimeformatter = 
 	new Intl.DateTimeFormat(undefined, {year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric", hour12: true})
 export const dateTimeformatterTimeZone = dateTimeformatter.resolvedOptions().timeZone
+
+export function normalizeEOL(content: string, eol: string): string 
+{
+    return content.replace(/\r\n|\n/g, eol).trimEnd() + eol  // trimEnd to fix issue where editor adds in extra new line automatically
+}
