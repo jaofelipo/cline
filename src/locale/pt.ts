@@ -1,7 +1,8 @@
 import path from "path";
-import { Labels, toolExemple1, toolExemple2, toolExemple3, toolExemple4, toolExemple5, toolUseInstructionsReminder } from "./locale";
+import { Labels } from "./locale";
 import { serializeError } from "serialize-error";
 import { ToolUse } from "../core/assistant-message";
+import { LOCK_TEXT_SYMBOL } from "@/core/ignore/ClineIgnoreController";
 
 export const ptBr:Labels = {
     date:{
@@ -66,7 +67,8 @@ export const ptBr:Labels = {
     },
     assistantMessage:
     {
-        newTask:"The user has created a new task with the provided context.",
+        duplicateFileReadNotice: `[[NOTE] This file read has been removed to save space in the context window. Refer to the latest file read for the most up to date version of this file.]`,        newTask:"The user has created a new task with the provided context.",
+        contextTruncationNotice: `[NOTE] Some previous conversation history with the user has been removed to maintain optimal context window length. The initial user task and the most recent exchanges have been retained for continuity, while intermediate conversation history has been removed. Please keep this in mind as you continue assisting the user.`,        
         newTaskWithFeedback: (text:string) => `The user provided feedback instead of creating a new task:\n<feedback>\n${text}\n</feedback>`,
         condenseFeedback: (text:string) => `The user provided feedback on the condensed conversation summary:\n<feedback>\n${text}\n</feedback>`,
         fileEditByUser: (relPath: string, userEdits: string, autoFormatted?: string, content?: string, newProblems?: string) =>
@@ -109,7 +111,7 @@ export const ptBr:Labels = {
         invalidMcpToolArgumentError: (serverName?: string, toolName?: string) => 
             ptBr.cline.toolError(`Invalid JSON argument used with ${serverName} for ${toolName}. Please retry with a properly formatted JSON argument.`), 
         missingParamError:(toolName: string, paramName: string, relPath?: string) => `Cline tried to use ${toolName}${ (relPath) ? ` for '${relPath.toPosix()}'` : ""} without value for required parameter '${paramName}'. Retrying...`,
-        missingToolParameterError: (paramName: string) => ptBr.cline.toolError(`Missing value for required parameter '${paramName}'. Please retry with complete response.\n\n${toolUseInstructionsReminder}`),
+        missingToolParameterError: (paramName: string) => ptBr.cline.toolError(`Missing value for required parameter '${paramName}'. Please retry with complete response.\n\n${ptBr.cline.toolUseInstructionsReminder}`),
         defaultError: (action:string, error:Error) => ptBr.cline.toolError(`Error ${action}: ${JSON.stringify(serializeError(error))}`),
         defaultErrorFormatted: (action:string, error:Error) => `Error ${action}:\n${error.message ?? JSON.stringify(serializeError(error), null, 2)}`,
         invalidToolnameArgumentError: (tool_name?:string) => `Cline tried to use ${tool_name} with an invalid JSON argument. Retrying...`,
@@ -123,6 +125,20 @@ export const ptBr:Labels = {
             (REMEMBER: if you need to proceed to using non-\`browser_action\` tools or launch a new browser, you MUST first close this browser. 
             For example, if after analyzing the logs and screenshot you need to edit a file, you must first close the browser before you can use the write_to_file tool.)`,
         formattedAnswer: (text) => `<answer>\n${text}\n</answer>`,
+        clineIgnoreInstructions: (content: string) => `# .clineignore\n\n(The following is provided by a root-level .clineignore file where the user has specified ` +
+             `files and directories that should not be accessed. When using list_files, you'll notice a ${LOCK_TEXT_SYMBOL} next to files that are blocked. ` + 
+             `Attempting to access the file's contents e.g. through read_file will result in an error.)\n\n${content}\n.clineignore`,
+        clineRulesGlobalDirectoryInstructions: (globalClineRulesFilePath: string, content: string) =>
+            `# .clinerules/\n\nThe following is provided by a global .clinerules/ directory, located at ${globalClineRulesFilePath.toPosix()}, where the user has ` + 
+            `specified instructions for all working directories:\n\n${content}`,
+
+        clineRulesLocalDirectoryInstructions: (cwd: string, content: string) =>
+            `# .clinerules/\n\nThe following is provided by a root-level .clinerules/ directory where the user has specified instructions for this working ` +
+            `directory (${cwd.toPosix()})\n\n${content}`,
+
+        clineRulesLocalFileInstructions: (cwd: string, content: string) =>
+            `# .clinerules\n\nThe following is provided by a root-level .clinerules file where the user has specified instructions for this working ` +
+            `directory (${cwd.toPosix()})\n\n${content}`,
         toolAlreadyUsed: (block:ToolUse) => `Tool [${block.name}] was not executed because a tool has already been used in this message.` + 
                 `Only one tool may be used per message. You must assess the first tool's result before proceeding to use the next tool.`,
         toolRejected: (block:ToolUse) => `Skipping tool ${ptBr.assistantMessage.toolDescription(block)} due to user rejecting a previous tool.`,

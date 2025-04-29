@@ -88,6 +88,8 @@ export interface Labels {
     },
     assistantMessage:
     {
+        duplicateFileReadNotice: string
+        contextTruncationNotice: string
         missingParamError:(toolName: string, paramName: string, relPath?: string) => string
         missingToolParameterError: (paramName: string) => string
         invalidToolnameArgumentError: (tool_name?:string) => string
@@ -102,6 +104,10 @@ export interface Labels {
         browserClosed:string
         browserAction: (consoleLogs?:string) => string
         formattedAnswer: (text?:string) => string
+        clineIgnoreInstructions: (content: string) => string
+        clineRulesGlobalDirectoryInstructions: (globalClineRulesFilePath: string, content: string) => string
+        clineRulesLocalDirectoryInstructions: (cwd: string, content: string) => string
+        clineRulesLocalFileInstructions: (cwd: string, content: string) => string
         toolAlreadyUsed: (block:ToolUse) => string
         toolRejected: (block:ToolUse) => string
         partilToolRejected: (block:ToolUse) => string        
@@ -190,26 +196,7 @@ async function loadTextFile(currentLang:string, category: string, key: string): 
   }
 
 
-export const toolUseInstructionsReminder = `# Reminder: Instructions for Tool Use
 
-Tool uses are formatted using XML-style tags. The tool name is enclosed in opening and closing tags, and each parameter is similarly enclosed within its own set of tags.
-Here's the structure:
-
-<tool_name>
-<parameter1_name>value1</parameter1_name>
-<parameter2_name>value2</parameter2_name>
-...
-</tool_name>
-
-For example:
-
-<attempt_completion>
-<result>
-I have completed the task...
-</result>
-</attempt_completion>
-
-Always adhere to this format for all tool uses to ensure proper parsing and execution.`
 
 
 export const toolExemple1:string = `

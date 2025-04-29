@@ -6,6 +6,7 @@ import fs from "fs/promises"
 import { ClineRulesToggles } from "@shared/cline-rules"
 import { getGlobalState, getWorkspaceState, updateGlobalState, updateWorkspaceState } from "@core/storage/state"
 import * as vscode from "vscode"
+import { localeAssistant } from "@/core/task"
 
 export const getGlobalClineRules = async (globalClineRulesFilePath: string, toggles: ClineRulesToggles) => {
 	if (await fileExistsAtPath(globalClineRulesFilePath)) {
@@ -18,7 +19,7 @@ export const getGlobalClineRules = async (globalClineRulesFilePath: string, togg
 					toggles,
 				)
 				if (rulesFilesTotalContent) {
-					const clineRulesFileInstructions = formatResponse.clineRulesGlobalDirectoryInstructions(
+					const clineRulesFileInstructions = localeAssistant.clineRulesGlobalDirectoryInstructions(
 						globalClineRulesFilePath,
 						rulesFilesTotalContent,
 					)
@@ -47,7 +48,7 @@ export const getLocalClineRules = async (cwd: string, toggles: ClineRulesToggles
 				const rulesFilePaths = await readDirectory(clineRulesFilePath)
 				const rulesFilesTotalContent = await getClineRulesFilesTotalContent(rulesFilePaths, cwd, toggles)
 				if (rulesFilesTotalContent) {
-					clineRulesFileInstructions = formatResponse.clineRulesLocalDirectoryInstructions(cwd, rulesFilesTotalContent)
+					clineRulesFileInstructions = localeAssistant.clineRulesLocalDirectoryInstructions(cwd, rulesFilesTotalContent)
 				}
 			} catch {
 				console.error(`Failed to read .clinerules directory at ${clineRulesFilePath}`)
@@ -57,7 +58,7 @@ export const getLocalClineRules = async (cwd: string, toggles: ClineRulesToggles
 				if (clineRulesFilePath in toggles && toggles[clineRulesFilePath] !== false) {
 					const ruleFileContent = (await fs.readFile(clineRulesFilePath, "utf8")).trim()
 					if (ruleFileContent) {
-						clineRulesFileInstructions = formatResponse.clineRulesLocalFileInstructions(cwd, ruleFileContent)
+						clineRulesFileInstructions = localeAssistant.clineRulesLocalFileInstructions(cwd, ruleFileContent)
 					}
 				}
 			} catch {

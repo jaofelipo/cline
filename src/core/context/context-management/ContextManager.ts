@@ -8,6 +8,7 @@ import cloneDeep from "clone-deep"
 import { ClineApiReqInfo, ClineMessage } from "@shared/ExtensionMessage"
 import { ApiHandler } from "@api/index"
 import { Anthropic } from "@anthropic-ai/sdk"
+import { getTranslation } from "@/locale/locale"
 
 enum EditType {
 	UNDEFINED = 0,
@@ -40,7 +41,10 @@ type SerializedContextHistory = Array<
 	]
 >
 
-export class ContextManager {
+export class ContextManager 
+{
+	public locale = getTranslation('pt-br')
+	
 	// mapping from the apiMessages outer index to the inner message index to a list of actual changes, ordered by timestamp
 	// timestamp is required in order to support full checkpointing, where the changes we apply need to be able to be undone when
 	// moving to an earlier conversation history checkpoint - this ordering intuitively allows for binary search on truncation
@@ -389,7 +393,7 @@ export class ContextManager {
 		if (!this.contextHistoryUpdates.has(1)) {
 			// first assistant message always at index 1
 			const innerMap = new Map<number, ContextUpdate[]>()
-			innerMap.set(0, [[timestamp, "text", [formatResponse.contextTruncationNotice()], []]])
+			innerMap.set(0, [[timestamp, "text", [this.locale.assistantMessage.contextTruncationNotice], []]])
 			this.contextHistoryUpdates.set(1, [0, innerMap]) // EditType is undefined for first assistant message
 			return true
 		}
@@ -542,7 +546,7 @@ export class ContextManager {
 				const entireMatch = match[0] // The entire matched string
 
 				// Create the replacement text - keep the tags but replace the content
-				const replacementText = `<file_content path="${filePath}">${formatResponse.duplicateFileReadNotice()}</file_content>`
+				const replacementText = `<file_content path="${filePath}">${this.locale.assistantMessage.duplicateFileReadNotice}</file_content>`
 
 				const indices = fileReadIndices.get(filePath) || []
 				indices.push([i, EditType.FILE_MENTION, entireMatch, replacementText])
@@ -575,7 +579,7 @@ export class ContextManager {
 		fileReadIndices: Map<string, [number, number, string, string][]>,
 	) {
 		const indices = fileReadIndices.get(filePath) || []
-		indices.push([i, EditType.READ_FILE_TOOL, "", formatResponse.duplicateFileReadNotice()])
+		indices.push([i, EditType.READ_FILE_TOOL, "", this.locale.assistantMessage.duplicateFileReadNotice])
 		fileReadIndices.set(filePath, indices)
 	}
 
@@ -592,7 +596,7 @@ export class ContextManager {
 
 		// check if this exists in the text, it won't exist if the user rejects the file change for example
 		if (pattern.test(secondBlockText)) {
-			const replacementText = secondBlockText.replace(pattern, `$1 ${formatResponse.duplicateFileReadNotice()} $2`)
+			const replacementText = secondBlockText.replace(pattern, `$1 ${this.locale.assistantMessage.duplicateFileReadNotice} $2`)
 			const indices = fileReadIndices.get(filePath) || []
 			indices.push([i, EditType.ALTER_FILE_TOOL, "", replacementText])
 			fileReadIndices.set(filePath, indices)
