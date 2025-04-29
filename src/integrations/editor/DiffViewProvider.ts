@@ -152,7 +152,7 @@ export class DiffViewProvider
 		}
 	}
 
-	async saveChanges(): Promise<{newProblems?: string, userEdits?: string, autoFormated?: string, finalContent?: string}> 
+	async saveChanges(): Promise<{newProblems?: string, userEdits?: string, autoFormatted?: string, finalContent?: string}> 
 	{
 		if (this.relPath && this.newContent && this.diffEditor) 
 		{
@@ -167,7 +167,7 @@ export class DiffViewProvider
 			if (updatedDocument.isDirty)
 				await updatedDocument.save()
 		
-			const postSaveContent = normalizeEOL(updatedDocument.getText(), eol) // get after save in case there is any auto-formatting 
+			const finalContent = normalizeEOL(updatedDocument.getText(), eol) // get after save in case there is any auto-formatting 
 
 			await vscode.window.showTextDocument(vscode.Uri.file(absolutePath), { preview: false })
 			await this.closeAllDiffViews()
@@ -183,9 +183,9 @@ export class DiffViewProvider
 				userEdits = this.createPrettyPatch(this.relPath, normalizedNewContent,	preSaveContent)
 
 			// auto-formatting was done by the editor
-			const autoFormated = (preSaveContent !== postSaveContent) ? this.createPrettyPatch(this.relPath, preSaveContent, postSaveContent) : ''
+			const autoFormatted = (preSaveContent !== finalContent) ? this.createPrettyPatch(this.relPath, preSaveContent, finalContent) : ''
 
-			return { newProblems, userEdits, autoFormated, finalContent: postSaveContent}
+			return { newProblems, userEdits, autoFormatted, finalContent}
 		}
 		return {}
 	}
@@ -237,7 +237,7 @@ export class DiffViewProvider
 		await Promise.all(tabsToClose)
 	}
 
-	private async openDiffEditor(relPath:string): Promise<vscode.TextEditor> 
+	private async openDiffEditor(relPath:string): Promise<vscode.TextEditor | undefined> 
 	{
 		const uri = vscode.Uri.file(path.resolve(cwd, relPath))
 

@@ -96,7 +96,9 @@ export interface Labels {
         defaultError: (action:string, error:Error) => string
         resultWithFeedback: (response?:String) => string,
         toolDenied:string
-        toolDeniedWithFeedback: (feedback?: string) => string
+        fileEditByUser: (relPath: string, userEdits: string, autoFormatted?: string, content?: string, newProblems?: string) => string
+        fileEdit: (relPath: string, autoFormatted?: string, content?: string, newProblems?: string) => string
+        reponseWithFeedback: (feedback?: string) => string
         browserClosed:string
         browserAction: (consoleLogs?:string) => string
         formattedAnswer: (text?:string) => string
@@ -113,6 +115,7 @@ export interface Labels {
         condense: string
         diffError: (error:Error, relPath: string, originalContent: string | undefined) => string
         switchToActMode: (text?:string) => string
+
         feedback: (text?:string) => string
         messages:{
             execute_command: (data:string[]) => string,

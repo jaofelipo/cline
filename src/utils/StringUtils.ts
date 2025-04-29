@@ -16,16 +16,32 @@ class StringUtils
         return newContent.endsWith(end) ? newContent.split("\n").slice(0, -1).join("\n").trim() : newContent;
     }
 
-    static htmlEntitiesMap = {  '&gt;': '>',
-                                '&lt;': '<',
-                                '&quot;': '"'};
+    static htmlEntitiesMap = {
+        '&gt;': '>',
+        '&lt;': '<',
+        '&quot;': '"',
+        '&amp;': '&',
+        '&apos;': "'"
+    }
     
-     /** Convert &gt &lt &quot em texto equivalente*/ 
+    /** Convert &gt &lt &quot &amp &apos em texto equivalente */ 
     static convertHtmlEntitiesToText(newContent: string): string 
     {
-        return newContent.replace(/&gt;|&lt;|&quot;/g, (match) => StringUtils.htmlEntitiesMap[match as keyof typeof StringUtils.htmlEntitiesMap] || match);
-    } 
+        return newContent.replace(/&gt;|&lt;|&quot;|&amp;|&apos;/g, (match) => 
+            StringUtils.htmlEntitiesMap[match as keyof typeof StringUtils.htmlEntitiesMap] || match);
+    }
 
+    /**
+     * Cleans text by converting HTML entities to their corresponding characters
+     * and removes Unicode replacement characters (�)
+     * 
+     * @param text - Text to be sanitized
+     * @returns Cleaned text without HTML entities and replacement characters
+     */
+    static fixModelContent(text: string): string 
+    {
+        return this.convertHtmlEntitiesToText(text).replace(/\uFFFD/g, "")
+    }
 
     static regexTagCache = new Map<string, RegExp>();
     

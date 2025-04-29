@@ -186,10 +186,6 @@ export class Controller {
 	 */
 	async handleWebviewMessage(message: WebviewMessage) {
 		switch (message.type) {
-			case 'novaTarefa':
-				console.log('é nois truta')
-
-				break
 			case "addRemoteServer": {
 				try {
 					await this.mcpHub?.addRemoteServer(message.serverName!, message.serverUrl!)
