@@ -430,9 +430,9 @@ export function createTestServer(webviewProvider?: WebviewProvider): http.Server
 								taskId,
 								completed: true,
 								metrics: {
-									tokensIn: taskData?.tokensIn || 0,
-									tokensOut: taskData?.tokensOut || 0,
-									cost: taskData?.totalCost || 0,
+									tokensIn: taskData?.usage?.tokensIn || 0,
+									tokensOut: taskData?.usage?.tokensOut || 0,
+									cost: taskData?.usage?.cost || 0,
 									duration: taskDuration,
 									...toolMetrics,
 								},
@@ -548,54 +548,54 @@ function autoRespondToAsk(webviewProvider: WebviewProvider, askType: ClineAsk, a
 	// Create a response message based on the ask type
 	const response: WebviewMessage = {
 		type: "askResponse",
-		askResponse: "yesButtonClicked", // Default to approving most actions
+		askResponse: "yes", // Default to approving most actions
 	}
 
 	// Handle specific ask types differently if needed
 	switch (askType) {
 		case "followup":
 			// For follow-up questions, provide a generic response
-			response.askResponse = "messageResponse"
+			response.askResponse = "message"
 			response.text = "I can't answer any questions right now, use your best judgment."
 			break
 
 		case "api_req_failed":
 			// Always retry API requests
-			response.askResponse = "yesButtonClicked" // "Retry" button
+			response.askResponse = "yes" // "Retry" button
 			break
 
 		case "completion_result":
 			// Accept the completion
-			response.askResponse = "messageResponse"
+			response.askResponse = "message"
 			response.text = "Task completed successfully."
 			break
 
 		case "mistake_limit_reached":
 			// Provide guidance to continue
-			response.askResponse = "messageResponse"
+			response.askResponse = "message"
 			response.text = "Try breaking down the task into smaller steps."
 			break
 
 		case "auto_approval_max_req_reached":
 			// Reset the count to continue
-			response.askResponse = "yesButtonClicked" // "Reset and continue" button
+			response.askResponse = "yes" // "Reset and continue" button
 			break
 
 		case "resume_task":
 		case "resume_completed_task":
 			// Resume the task
-			response.askResponse = "messageResponse"
+			response.askResponse = "message"
 			break
 
 		case "new_task":
 			// Decline creating a new task to keep the current task running
-			response.askResponse = "messageResponse"
+			response.askResponse = "message"
 			response.text = "Continue with the current task."
 			break
 
 		case "plan_mode_respond":
 			// Respond to plan mode with a message to toggle to Act mode
-			response.askResponse = "messageResponse"
+			response.askResponse = "message"
 			response.text = "PLAN_MODE_TOGGLE_RESPONSE" // Special marker to toggle to Act mode
 
 			// Automatically toggle to Act mode after responding

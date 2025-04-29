@@ -134,7 +134,7 @@ export interface WebviewMessage {
 	offset?: number
 }
 
-export type ClineAskResponse = "yesButtonClicked" | "noButtonClicked" | "messageResponse"
+export type ClineAskResponse = "yes" | "no" | "message"
 
 export type ClineCheckpointRestore = "task" | "workspace" | "taskAndWorkspace"
 

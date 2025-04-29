@@ -79,8 +79,8 @@ import {
 	ensureTaskDirectoryExists,
 	getSavedApiConversationHistory,
 	getSavedClineMessages,
+	GlobalFileNames,
 	saveApiConversationHistory,
-	saveClineMessages,
 } from "@core/storage/disk"
 import {
 	getGlobalClineRules,
@@ -99,6 +99,7 @@ import { resetTimer } from "@/utils/delayUtils"
 import { parseJSON, toJSON } from "@/utils/jsonUtils"
 import { TaskModel } from "./TaskModel"
 import { imageBlocksParam, newText } from "@/utils/anthropicUtils"
+import { getTaskDirSize, writeFile } from "@/utils/fsUtils"
 
 export const cwd =
 	vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? path.join(os.homedir(), "Desktop") // may or may not exist but fs checking existence would immediately ask for permission which would be bad UX, need to come up with a better solution
@@ -275,56 +276,40 @@ export class Task
 		await saveApiConversationHistory(this.getContext(), this.taskId, this.taskModel.apiConversationHistory)
 	}
 
-	private async addToClineMessages(message: ClineMessage) {
+	private async addToClineMessages(message: ClineMessage) 
+	{
 		// these values allow us to reconstruct the conversation history at the time this cline message was created
 		// it's important that apiConversationHistory is initialized before we add cline messages
 		message.conversationHistoryIndex = this.taskModel.apiConversationHistory.length - 1 // NOTE: this is the index of the last added message which is the user message, and once the clinemessages have been presented we update the apiconversationhistory with the completed assistant message. This means when resetting to a message, we need to +1 this index to get the correct assistant message that this tool use corresponds to
 		message.conversationHistoryDeletedRange = this.conversationHistoryDeletedRange
 		this.clineMessages.push(message)
-		await this.saveClineMessagesAndUpdateHistory()
+		await this.saveClineMessages()
 	}
 
 	private async overwriteClineMessages(newMessages: ClineMessage[]) {
 		this.clineMessages = newMessages
-		await this.saveClineMessagesAndUpdateHistory()
+		await this.saveClineMessages()
 	}
 
-	private async saveClineMessagesAndUpdateHistory() {
-		try {
-			await saveClineMessages(this.getContext(), this.taskId, this.clineMessages)
-
-			// combined as they are in ChatView
-			const apiMetrics = getApiMetrics(combineApiRequests(combineCommandSequences(this.clineMessages.slice(1))))
-			const taskMessage = this.clineMessages[0] // first message is always the task say
-			const lastRelevantMessage =
-				this.clineMessages[
-					findLastIndex(this.clineMessages, (m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task"))
-				]
-			const taskDir = await ensureTaskDirectoryExists(this.getContext(), this.taskId)
-			let taskDirSize = 0
-			try {
-				// getFolderSize.loose silently ignores errors
-				// returns # of bytes, size/1000/1000 = MB
-				taskDirSize = await getFolderSize.loose(taskDir)
-			} catch (error) {
-				console.error("Failed to get task directory size:", taskDir, error)
-			}
+	private async saveClineMessages() 
+	{
+		try 
+		{
+			await writeFile([this.getContext().globalStorageUri.fsPath, "tasks", this.taskId], GlobalFileNames.uiMessages, this.clineMessages)
+			const apiMetrics = getApiMetrics(combineApiRequests(combineCommandSequences(this.clineMessages.slice(1)))) // combined as they are in ChatView
+			const firstMessage = this.clineMessages[0] // first message is always the task say
+			const lastRelevantMessage = findLast(this.clineMessages, (m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task"))
+			
 			await this.updateTaskHistory({
 				id: this.taskId,
-				ts: lastRelevantMessage.ts,
-				task: taskMessage.text ?? "",
-				tokensIn: apiMetrics.totalTokensIn,
-				tokensOut: apiMetrics.totalTokensOut,
-				cacheWrites: apiMetrics.totalCacheWrites,
-				cacheReads: apiMetrics.totalCacheReads,
-				totalCost: apiMetrics.totalCost,
-				size: taskDirSize,
+				ts: lastRelevantMessage!.ts,
+				task: firstMessage.text ?? "", 
+				usage: apiMetrics,
+				size: await getTaskDirSize([this.getContext().globalStorageUri.fsPath, "tasks", this.taskId]),
 				shadowGitConfigWorkTree: await this.checkpointTracker?.getShadowGitConfigWorkTree(),
 				conversationHistoryDeletedRange: this.conversationHistoryDeletedRange,
 			})
-		} catch (error) {
-			console.error("Failed to save cline messages:", error)
-		}
+		} catch (error) {}
 	}
 
 
@@ -453,13 +438,7 @@ export class Task
 
 					await this.say(
 						"deleted_api_reqs",
-						JSON.stringify({
-							tokensIn: deletedApiReqsMetrics.totalTokensIn,
-							tokensOut: deletedApiReqsMetrics.totalTokensOut,
-							cacheWrites: deletedApiReqsMetrics.totalCacheWrites,
-							cacheReads: deletedApiReqsMetrics.totalCacheReads,
-							cost: deletedApiReqsMetrics.totalCost,
-						} satisfies ClineApiReqInfo),
+						JSON.stringify({usage:deletedApiReqsMetrics} satisfies ClineApiReqInfo),
 					)
 					break
 				case "workspace":
@@ -490,7 +469,7 @@ export class Task
 				})
 			}
 
-			await this.saveClineMessagesAndUpdateHistory()
+			await this.saveClineMessages()
 
 			await this.postMessageToWebview({ type: "relinquishControl" })
 
@@ -742,7 +721,7 @@ export class Task
 					// lastMessage.ts = askTs
 					lastMessage.text = text
 					lastMessage.partial = false
-					await this.saveClineMessagesAndUpdateHistory()
+					await this.saveClineMessages()
 					// await this.postStateToWebview()
 					await this.postMessageToWebview({
 						type: "partialMessage",
@@ -835,83 +814,23 @@ export class Task
 
 	}
 
-	async say(type: ClineSay, text?: string, images?: string[], partial?: boolean): Promise<undefined> {
-		if (this.abort) {
-			throw new Error("Cline instance aborted")
-		}
+	public async storeMessageAndSendToView(message:ClineMessage)
+	{
+		this.lastMessageTs = message.ts
+		this.addToClineMessages(message)
+		await this.postStateToWebview()
+		return message
+	}
 
-		if (partial !== undefined) {
-			const lastMessage = this.clineMessages.at(-1)
-			const isUpdatingPreviousPartial =
-				lastMessage && lastMessage.partial && lastMessage.type === "say" && lastMessage.say === type
-			if (partial) {
-				if (isUpdatingPreviousPartial) {
-					// existing partial message, so update it
-					lastMessage.text = text
-					lastMessage.images = images
-					lastMessage.partial = partial
-					await this.postMessageToWebview({
-						type: "partialMessage",
-						partialMessage: lastMessage,
-					})
-				} else {
-					// this is a new partial message, so add it with partial state
-					const sayTs = Date.now()
-					this.lastMessageTs = sayTs
-					await this.addToClineMessages({
-						ts: sayTs,
-						type: "say",
-						say: type,
-						text,
-						images,
-						partial,
-					})
-					await this.postStateToWebview()
-				}
-			} else {
-				// partial=false means its a complete version of a previously partial message
-				if (isUpdatingPreviousPartial) {
-					// this is the complete version of a previously partial message, so replace the partial with the complete version
-					this.lastMessageTs = lastMessage.ts
-					// lastMessage.ts = sayTs
-					lastMessage.text = text
-					lastMessage.images = images
-					lastMessage.partial = false
-
-					// instead of streaming partialMessage events, we do a save and post like normal to persist to disk
-					await this.saveClineMessagesAndUpdateHistory()
-					// await this.postStateToWebview()
-					await this.postMessageToWebview({
-						type: "partialMessage",
-						partialMessage: lastMessage,
-					}) // more performant than an entire postStateToWebview
-				} else {
-					// this is a new partial=false message, so add it like normal
-					const sayTs = Date.now()
-					this.lastMessageTs = sayTs
-					await this.addToClineMessages({
-						ts: sayTs,
-						type: "say",
-						say: type,
-						text,
-						images,
-					})
-					await this.postStateToWebview()
-				}
-			}
-		} else {
-			// this is a new non-partial message, so add it like normal
-			const sayTs = Date.now()
-			this.lastMessageTs = sayTs
-			await this.addToClineMessages({
-				ts: sayTs,
-				type: "say",
-				say: type,
-				text,
-				images,
-			})
-			await this.postStateToWebview()
-		}
+	async say(type: ClineSay, data?: string | object, images?: string[], partial?: boolean)
+	{
+		const text:string = (typeof data === "object" && data !== null) ? JSON.stringify(data) : data as string || ''
+        const lastMessage = this.clineMessages.at(-1)
+        const isUpdatingPreviousPartial = lastMessage && lastMessage.partial && lastMessage.type === "say" && lastMessage.say === type
+		if (isUpdatingPreviousPartial) // existing partial message, so update it
+			return this.updateLastMessage(text, images, partial)
+		else // new message
+            return await this.storeMessageAndSendToView({ ts: Date.now(), type: "say", say: type, text, images, partial })
 	}
 
 	async sayAndCreateMissingParamError(toolName: ToolUseName, paramName: string, relPath?: string) 
@@ -926,11 +845,26 @@ export class Task
 		if (lastMessage?.partial && lastMessage.type === type && (lastMessage.ask === askOrSay || lastMessage.say === askOrSay)) 
 		{
 			this.clineMessages.pop()
-			await this.saveClineMessagesAndUpdateHistory()
+			await this.saveClineMessages()
 			await this.postStateToWebview()
 		}
 	}
 
+	async updateLastMessage(text?:string, images?:string[], partial?:boolean, newTs?:number)
+	{
+		const lastMessage = this.clineMessages.at(-1)!
+		lastMessage.text = text
+		lastMessage.images = images
+		lastMessage.partial = partial
+
+		this.lastMessageTs = newTs ?? (partial) ? this.lastMessageTs : lastMessage.ts
+
+		if (!partial) //complete message, save to disk
+            await this.saveClineMessages() // instead of streaming partialMessage events, we do a save and post like normal to persist to disk
+
+		await this.postMessageToWebview({ type: "partialMessage", partialMessage: lastMessage })
+		return lastMessage
+	}	
 	// Task lifecycle
 
 	private async startTask(task?: string, images?: string[]): Promise<void> {
@@ -981,8 +915,8 @@ export class Task
 		)
 		if (lastApiReqStartedIndex !== -1) {
 			const lastApiReqStarted = modifiedClineMessages[lastApiReqStartedIndex]
-			const { cost, failedReason: cancelReason }: ClineApiReqInfo = JSON.parse(lastApiReqStarted.text || "{}")
-			if (cost === undefined && cancelReason === undefined) {
+			const { usage, failedReason: cancelReason }: ClineApiReqInfo = JSON.parse(lastApiReqStarted.text || "{}")
+			if (usage?.cost === undefined && cancelReason === undefined) {
 				modifiedClineMessages.splice(lastApiReqStartedIndex, 1)
 			}
 		}
@@ -1013,7 +947,7 @@ export class Task
 
 		const response = await this.ask(askType) // calls poststatetowebview
 
-		if (response?.askResponse === "messageResponse") 
+		if (response?.askResponse === "message") 
 			await this.say("user_feedback", response.text, response.images)
 		
 
@@ -1157,7 +1091,7 @@ export class Task
 				const lastCheckpointMessage = findLast(this.clineMessages, (m) => m.say === "checkpoint_created")
 				if (lastCheckpointMessage) {
 					lastCheckpointMessage.lastCheckpointHash = commitHash
-					await this.saveClineMessagesAndUpdateHistory()
+					await this.saveClineMessages()
 				}
 			}) // silently fails for now
 
@@ -1172,7 +1106,7 @@ export class Task
 			)
 			if (lastCompletionResultMessage) {
 				lastCompletionResultMessage.lastCheckpointHash = commitHash
-				await this.saveClineMessagesAndUpdateHistory()
+				await this.saveClineMessages()
 			}
 		}
 
@@ -1271,7 +1205,7 @@ export class Task
 					firstRun = false
 					const chunk = outputBuffer.join("\n")
 					const response = await task.ask("command_output", chunk)
-					if (response?.askResponse !== "yesButtonClicked") 
+					if (response?.askResponse !== "yes") 
 						userFeedback = { text:response?.text, images:response?.images }
 					process.continue()
 				}
@@ -1374,7 +1308,7 @@ export class Task
 
 		if (contextManagementMetadata.updatedConversationHistoryDeletedRange) {
 			this.conversationHistoryDeletedRange = contextManagementMetadata.conversationHistoryDeletedRange
-			await this.saveClineMessagesAndUpdateHistory() // saves task history item which we use to keep track of conversation history deleted range
+			await this.saveClineMessages() // saves task history item which we use to keep track of conversation history deleted range
 		}
 
 		let stream = this.api.createMessage(systemPrompt, contextManagementMetadata.truncatedConversationHistory)
@@ -1399,7 +1333,7 @@ export class Task
 					this.conversationHistoryDeletedRange,
 					"quarter", // Force aggressive truncation
 				)
-				await this.saveClineMessagesAndUpdateHistory()
+				await this.saveClineMessages()
 
 				this.didAutomaticallyRetryFailedApiRequest = true
 			} else if (isOpenRouter && !this.didAutomaticallyRetryFailedApiRequest) {
@@ -1409,7 +1343,7 @@ export class Task
 						this.conversationHistoryDeletedRange,
 						"quarter", // Force aggressive truncation
 					)
-					await this.saveClineMessagesAndUpdateHistory()
+					await this.saveClineMessages()
 				}
 
 				console.log("first chunk failed, waiting 1 second before retrying")
@@ -1437,7 +1371,7 @@ export class Task
 
 				const response = await this.ask("api_req_failed", errorMessage)
 
-				if (response?.askResponse !== "yesButtonClicked") {
+				if (response?.askResponse !== "yes") {
 					// this will never happen since if noButtonClicked, we will clear current task, aborting this instance
 					throw new Error("API request failed")
 				}
@@ -1459,10 +1393,10 @@ export class Task
 	async askApproval (block:ToolUse, type: ClineAsk, partialMessage?: string) 
 	{
 		const response = await this.ask(type, partialMessage, false)
-		if (response?.askResponse === "yesButtonClicked")  // User hit the approve button, and may have provided feedback
+		if (response?.askResponse === "yes")  // User hit the approve button, and may have provided feedback
 			return true
 
-		if (response?.askResponse === 'messageResponse') 
+		if (response?.askResponse === 'message') 
 		{
 			this.pushToolResult(block, localeAssistant.reponseWithFeedback(response?.text), response?.images, true)
 			await this.say("user_feedback", response?.text, response?.images)
@@ -1799,7 +1733,7 @@ export class Task
 									// Need a more customized tool response for file edits to highlight the fact that the file was not updated (particularly important for deepseek)
 									let didApprove = true
 									const response = await this.ask("tool", completeMessage, false)
-									if (response?.askResponse !== "yesButtonClicked") {
+									if (response?.askResponse !== "yes") {
 										// User either sent a message or pressed reject button
 										// TODO: add similar context for other tool denial responses, to emphasize ie that a command was not run
 										const fileDeniedNote = fileExists
@@ -2163,7 +2097,7 @@ export class Task
 
 			// update api_req_started to have cancelled and cost, so that we can display the cost of the partial stream
 			updateApiReqMsg(startMessage, cost, this.api.getModel().info, streamingFailed, streamingFailedMessage)
-			await this.saveClineMessagesAndUpdateHistory()
+			await this.saveClineMessages()
 
 			telemetryService.captureConversationTurnEvent(this.taskId, currentProviderId, this.api.getModel().id, "assistant")
 
@@ -2201,7 +2135,7 @@ export class Task
 					? `This may indicate a failure in his thought process or inability to use a tool properly, which can be mitigated with some user guidance (e.g. "Try breaking down the task into smaller steps").`
 					: "Cline uses complex prompts and iterative task execution that may be challenging for less capable models. For best results, it's recommended to use Claude 3.7 Sonnet for its advanced agentic coding capabilities.",
 			)
-			if (response?.askResponse === "messageResponse") {
+			if (response?.askResponse === "message") {
 				userContent.push(
 					...[
 						{
@@ -2274,7 +2208,7 @@ export class Task
 			const lastCheckpointMessage = findLast(this.clineMessages, (m) => m.say === "checkpoint_created")
 			if (lastCheckpointMessage) {
 				lastCheckpointMessage.lastCheckpointHash = commitHash
-				await this.saveClineMessagesAndUpdateHistory()
+				await this.saveClineMessages()
 			}
 		}
 
@@ -2303,7 +2237,7 @@ export class Task
 			request: userContent.map((block) => formatContentBlockToMarkdown(block)).join("\n\n"),
 		} satisfies ClineApiReqInfo)
 
-		await this.saveClineMessagesAndUpdateHistory()
+		await this.saveClineMessages()
 		await this.postStateToWebview()
 
 		try {
@@ -2402,7 +2336,7 @@ export class Task
 					if (apiStreamUsage) 
 						updateCost(cost, apiStreamUsage)
 					updateApiReqMsg(startMessage, cost, this.api.getModel().info)
-					await this.saveClineMessagesAndUpdateHistory()
+					await this.saveClineMessages()
 					await this.postStateToWebview()
 				})
 			}
@@ -2426,7 +2360,7 @@ export class Task
 			}
 
 			updateApiReqMsg(startMessage, cost, this.api.getModel().info)
-			await this.saveClineMessagesAndUpdateHistory()
+			await this.saveClineMessages()
 			await this.postStateToWebview()
 
 			// now add to apiconversationhistory
@@ -2799,7 +2733,7 @@ export class Task
 
 		// we already sent completion_result says, an empty string asks relinquishes control over button and field
 		const response = await this.ask("completion_result", "", false)
-		if (response?.askResponse === "yesButtonClicked") {
+		if (response?.askResponse === "yes") {
 			this.pushToolResult(block, "") // signals to recursive loop to stop (for now this never happens since yesButtonClicked will trigger a new task)
 			return
 		}
@@ -2994,7 +2928,7 @@ export class Task
 					...sharedMessage,
 					selected: r.text,
 				} satisfies ClinePlanModeResponse)
-				await this.saveClineMessagesAndUpdateHistory()
+				await this.saveClineMessages()
 				telemetryService.captureOptionSelected(this.taskId, options.length, "plan")
 			}
 		} else {
@@ -3041,7 +2975,7 @@ export class Task
 			//	this.conversationHistoryDeletedRange,
 			//	keepStrategy, 
 			//)					'				//desabilitado aguardando o merge
-			await this.saveClineMessagesAndUpdateHistory()
+			await this.saveClineMessages()
 			//await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(
 			//	Date.now(),
 			//	await ensureTaskDirectoryExists(this.getContext(), this.taskId),
@@ -3103,7 +3037,7 @@ export class Task
 					...sharedMessage,
 					selected: response?.text,
 				} satisfies ClineAskQuestion)
-				await this.saveClineMessagesAndUpdateHistory()
+				await this.saveClineMessages()
 				telemetryService.captureOptionSelected(this.taskId, options.length, "act")
 			}
 		} else {
@@ -3332,7 +3266,7 @@ export class Task
 		) {
 			lastCompletionResultMessage.text += COMPLETION_RESULT_CHANGES_FLAG
 		}
-		await this.saveClineMessagesAndUpdateHistory()
+		await this.saveClineMessages()
 	}	
 
 	async loadContext(userContent: Anthropic.ContentBlockParam[]) {

@@ -55,8 +55,8 @@ export async function getDocumentsPath(): Promise<string> {
 }
 
 export async function ensureTaskDirectoryExists(context: vscode.ExtensionContext, taskId: string): Promise<string> {
-	const globalStoragePath = context.globalStorageUri.fsPath
-	const taskDir = path.join(globalStoragePath, "tasks", taskId)
+	
+	const taskDir = path.join(context.globalStorageUri.fsPath, "tasks", taskId)
 	await fs.mkdir(taskDir, { recursive: true })
 	return taskDir
 }
@@ -131,15 +131,7 @@ export async function getSavedClineMessages(context: vscode.ExtensionContext, ta
 	return []
 }
 
-export async function saveClineMessages(context: vscode.ExtensionContext, taskId: string, uiMessages: ClineMessage[]) {
-	try {
-		const taskDir = await ensureTaskDirectoryExists(context, taskId)
-		const filePath = path.join(taskDir, GlobalFileNames.uiMessages)
-		await fs.writeFile(filePath, JSON.stringify(uiMessages))
-	} catch (error) {
-		console.error("Failed to save ui messages:", error)
-	}
-}
+
 
 export async function getTaskMetadata(context: vscode.ExtensionContext, taskId: string): Promise<TaskMetadata> 
 {

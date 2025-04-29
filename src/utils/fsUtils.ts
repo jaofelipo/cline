@@ -1,6 +1,8 @@
 import path from "path"
 import fs from "fs/promises"
 import { fileExistsAtPath } from "./fs";
+import { ensureTaskDirectoryExists } from "@/core/storage/disk";
+import getFolderSize from "get-folder-size";
 
 async function ensureDirectory(...paths:string[]): Promise<string> 
 {
@@ -38,6 +40,18 @@ export async function writeFile(paths:string[], filename:string, content:any): P
         console.error(`Failed to write file: ${filename}`, error);
     }
 }
+
+export async function getTaskDirSize(paths:string[])
+{
+    try 
+    {
+        const taskDir = await ensureDirectory(...paths)
+        return await getFolderSize.loose(taskDir)// getFolderSize.loose silently ignores errors | returns # of bytes, size/1000/1000 = MB 
+    }
+    catch (error) {}
+    return undefined
+}
+
 
 export async function loadFileAt(baseDir:string, filename:string): Promise<string | null>
 {

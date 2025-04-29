@@ -1,12 +1,4 @@
-import { ClineMessage } from "./ExtensionMessage"
-
-interface ApiMetrics {
-	totalTokensIn: number
-	totalTokensOut: number
-	totalCacheWrites?: number
-	totalCacheReads?: number
-	totalCost: number
-}
+import { ApiMetrics, ClineMessage } from "./ExtensionMessage"
 
 /**
  * Calculates API metrics from an array of ClineMessages.
@@ -26,38 +18,34 @@ interface ApiMetrics {
  * // Result: { totalTokensIn: 10, totalTokensOut: 20, totalCost: 0.005 }
  */
 export function getApiMetrics(messages: ClineMessage[]): ApiMetrics {
+	
 	const result: ApiMetrics = {
-		totalTokensIn: 0,
-		totalTokensOut: 0,
-		totalCacheWrites: undefined,
-		totalCacheReads: undefined,
-		totalCost: 0,
+		tokensIn: 0,
+		tokensOut: 0,
+		cacheWrites: undefined,
+		cacheReads: undefined,
+		cost: 0
 	}
 
 	messages.forEach((message) => {
 		if (message.type === "say" && (message.say === "api_req_started" || message.say === "deleted_api_reqs") && message.text) {
-			try {
+			try 
+			{
 				const parsedData = JSON.parse(message.text)
 				const { tokensIn, tokensOut, cacheWrites, cacheReads, cost } = parsedData
 
-				if (typeof tokensIn === "number") {
-					result.totalTokensIn += tokensIn
-				}
-				if (typeof tokensOut === "number") {
-					result.totalTokensOut += tokensOut
-				}
-				if (typeof cacheWrites === "number") {
-					result.totalCacheWrites = (result.totalCacheWrites ?? 0) + cacheWrites
-				}
-				if (typeof cacheReads === "number") {
-					result.totalCacheReads = (result.totalCacheReads ?? 0) + cacheReads
-				}
-				if (typeof cost === "number") {
-					result.totalCost += cost
-				}
-			} catch (error) {
-				console.error("Error parsing JSON:", error)
-			}
+				if (typeof tokensIn === "number") 
+					result.tokensIn += tokensIn
+				if (typeof tokensOut === "number") 
+					result.tokensOut += tokensOut
+				if (typeof cacheWrites === "number") 
+					result.cacheWrites = (result.cacheWrites ?? 0) + cacheWrites
+				if (typeof cacheReads === "number") 
+					result.cacheReads = (result.cacheReads ?? 0) + cacheReads
+				if (typeof cost === "number") 
+					result.cost = (result.cost ?? 0) + cost
+			} 
+			catch (error) {}
 		}
 	})
 

@@ -17,8 +17,8 @@ class ContextManager {
 		if (previousApiReqIndex >= 0) {
 			const previousRequest = clineMessages[previousApiReqIndex]
 			if (previousRequest && previousRequest.text) {
-				const { tokensIn, tokensOut, cacheWrites, cacheReads }: ClineApiReqInfo = JSON.parse(previousRequest.text)
-				const totalTokens = (tokensIn || 0) + (tokensOut || 0) + (cacheWrites || 0) + (cacheReads || 0)
+				const {usage} = JSON.parse(previousRequest.text)
+				const totalTokens = (usage?.tokensIn || 0) + (usage?.tokensOut || 0) + (usage?.cacheWrites || 0) + (usage?.cacheReads || 0)
 				const { maxAllowedSize } = getContextWindowInfo(api)
 
 				// This is the most reliable way to know when we're close to hitting the context window.

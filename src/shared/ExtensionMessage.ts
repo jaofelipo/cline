@@ -272,11 +272,7 @@ export interface ClineAskNewTask {
 
 export interface ClineApiReqInfo {
 	request?: string
-	tokensIn?: number
-	tokensOut?: number
-	cacheWrites?: number
-	cacheReads?: number
-	cost?: number
+	usage?:ApiMetrics
 	failedReason?: boolean //undefined -> not failed, true -> streaming failed, false -> user cancelled
 	streamingFailedMessage?: string
 }
