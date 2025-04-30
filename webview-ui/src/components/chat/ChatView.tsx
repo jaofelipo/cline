@@ -49,8 +49,8 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 	const lastApiReqTotalTokens = useMemo(() => {
 		const getTotalTokensFromApiReqMessage = (msg: ClineMessage) => {
 			if (!msg.text) return 0
-			const { tokensIn, tokensOut, cacheWrites, cacheReads }: ClineApiReqInfo = JSON.parse(msg.text)
-			return (tokensIn || 0) + (tokensOut || 0) + (cacheWrites || 0) + (cacheReads || 0)
+			const { usage }: ClineApiReqInfo = JSON.parse(msg.text)
+			return (usage?.tokensIn || 0) + (usage?.tokensOut || 0) + (usage?.cacheWrites || 0) + (usage?.cacheReads || 0)
 		}
 		const lastApiReqMessage = findLast(modifiedMessages, (msg) => {
 			if (msg.say !== "api_req_started") return false
@@ -289,7 +289,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 			text = text.trim()
 			if (text || images.length > 0) {
 				if (messages.length === 0) {
-					vscode.postMessage({ type: (novo) ? 'novaTarefa' : "newTask", text, images })
+					vscode.postMessage({ type:"newTask", text, images })
 				} else if (clineAsk) {
 					switch (clineAsk) {
 						case "followup":
@@ -306,7 +306,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 						case "new_task": // user can provide feedback or reject the new task suggestion
 							vscode.postMessage({
 								type: "askResponse",
-								askResponse: "messageResponse",
+								askResponse: "message",
 								text,
 								images,
 							})
@@ -350,14 +350,14 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 					if (trimmedInput || (images && images.length > 0)) {
 						vscode.postMessage({
 							type: "askResponse",
-							askResponse: "yesButtonClicked",
+							askResponse: "yes",
 							text: trimmedInput,
 							images: images,
 						})
 					} else {
 						vscode.postMessage({
 							type: "askResponse",
-							askResponse: "yesButtonClicked",
+							askResponse: "yes",
 						})
 					}
 					// Clear input state after sending
@@ -409,7 +409,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 					if (trimmedInput || (images && images.length > 0)) {
 						vscode.postMessage({
 							type: "askResponse",
-							askResponse: "noButtonClicked",
+							askResponse: "no",
 							text: trimmedInput,
 							images: images,
 						})
@@ -417,7 +417,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 						// responds to the API with a "This operation failed" and lets it try again
 						vscode.postMessage({
 							type: "askResponse",
-							askResponse: "noButtonClicked",
+							askResponse: "no",
 						})
 					}
 					// Clear input state after sending
@@ -820,12 +820,12 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 			{task ? (
 				<TaskHeader
 					task={task}
-					tokensIn={apiMetrics.totalTokensIn}
-					tokensOut={apiMetrics.totalTokensOut}
+					tokensIn={apiMetrics.tokensIn}
+					tokensOut={apiMetrics.tokensOut}
 					doesModelSupportPromptCache={selectedModelInfo.supportsPromptCache}
-					cacheWrites={apiMetrics.totalCacheWrites}
-					cacheReads={apiMetrics.totalCacheReads}
-					totalCost={apiMetrics.totalCost}
+					cacheWrites={apiMetrics.cacheWrites}
+					cacheReads={apiMetrics.cacheReads}
+					totalCost={apiMetrics.cost ?? 0}
 					lastApiReqTotalTokens={lastApiReqTotalTokens}
 					onClose={handleTaskCloseButtonClick}
 				/>

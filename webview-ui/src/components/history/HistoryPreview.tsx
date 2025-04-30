@@ -54,21 +54,21 @@ const HistoryPreview = ({ showHistoryView }: HistoryPreviewProps) => {
 								</div>
 								<div className={styles.itemDetails}>
 									<span>
-										Tokens: ↑{formatLargeNumber(item.tokensIn || 0)} ↓{formatLargeNumber(item.tokensOut || 0)}
+										Tokens: ↑{formatLargeNumber(item.usage?.tokensIn || 0)} ↓{formatLargeNumber(item.usage?.tokensOut || 0)}
 									</span>
-									{!!item.cacheWrites && (
+									{!!item.usage?.cacheWrites && (
 										<>
 											{" • "}
 											<span>
-												Cache: +{formatLargeNumber(item.cacheWrites || 0)} →{" "}
-												{formatLargeNumber(item.cacheReads || 0)}
+												Cache: +{formatLargeNumber(item.usage?.cacheWrites || 0)} →{" "}
+												{formatLargeNumber(item.usage?.cacheReads || 0)}
 											</span>
 										</>
 									)}
-									{!!item.totalCost && (
+									{!!item.usage?.cost && (
 										<>
 											{" • "}
-											<span>API Cost: ${item.totalCost?.toFixed(4)}</span>
+											<span>API Cost: ${item.usage?.cost?.toFixed(4)}</span>
 										</>
 									)}
 								</div>

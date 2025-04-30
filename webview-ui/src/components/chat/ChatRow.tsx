@@ -135,7 +135,7 @@ export const ChatRowContent = ({
 	const [cost, apiReqFailedReason, apiReqStreamingFailedMessage] = useMemo(() => {
 		if (message.text != null && message.say === "api_req_started") {
 			const info: ClineApiReqInfo = JSON.parse(message.text)
-			return [info.cost, info.failedReason, info.streamingFailedMessage]
+			return [info.usage?.cost, info.failedReason, info.streamingFailedMessage]
 		}
 		return [undefined, undefined, undefined]
 	}, [message.text, message.say])
