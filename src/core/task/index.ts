@@ -314,20 +314,6 @@ export class Task
 	}
 
 
-	async checkRequiredParameters(block:ToolUse, params:ToolParamName[])
-	{
-		for (const param of params)
-		{
-			if (!block.params[param])
-			{
-				this.taskModel.consecutiveMistakeCount++
-				this.pushToolResult(block, await this.sayAndCreateMissingParamError("execute_command", param))
-				return false
-			}
-		}
-		return true
-	}	
-
     pushToolResult(block:ToolUse, text:string, images?: string[]|string, format:boolean=false)
     {
 		const supportsImages = this.api.getModel().info.supportsImages ?? false//the model may not support images, inform
