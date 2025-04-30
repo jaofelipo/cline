@@ -1,6 +1,6 @@
 
 import path from "path"
-import { ToolUse } from "../core/assistant-message";
+import { ToolParamName, ToolUse } from "../core/assistant-message";
 import { en } from "./en";
 import { ptBr } from "./pt";
 import fs from 'fs/promises';
@@ -123,20 +123,7 @@ export interface Labels {
         switchToActMode: (text?:string) => string
 
         feedback: (text?:string) => string
-        messages:{
-            execute_command: (data:string[]) => string,
-            read_file: (data:string[]) => string,
-            write_to_file: (data:string[]) => string,
-            replace_in_file: (data:string[]) => string,
-            search_files: (data:string[]) => string,
-            list_files: (data:string[]) => string,
-            list_code_definition_names: (data:string[]) => string,
-            browser_action: (data:string[]) => string,
-            use_mcp_tool: (data:string[]) => string,
-            access_mcp_resource: (data:string[]) => string,
-            ask_followup_question: (data:string[]) => string,
-            attempt_completion: (data:string[]) => string,
-        }
+        messages: (block:ToolUse) => string 
         titles:{
             execute_command: string,
             search_files: string,

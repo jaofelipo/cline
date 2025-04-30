@@ -1,13 +1,25 @@
 import { cwd } from "@/core/task";
 import { ToolParamName, ToolUse } from "../core/assistant-message";
-import { ClineAskUseMcpServer, ClineSayTool } from "../shared/ExtensionMessage";
+import { ClineAskQuestion, ClineAskUseMcpServer, ClinePlanModeResponse, ClineSayTool } from "../shared/ExtensionMessage";
 import { getReadablePath, isLocatedInWorkspace } from "./path";
-
+import { parsePartialArrayString } from "@/shared/array";
 
 export function toJSON({name, params, partial}:ToolUse, content?:string, overrideTool?:any):string
 {
 	switch(name)
 	{
+		case 'browser_action':
+			return params.url ?? ''
+		case 'condense':
+			return StringUtils.removeTag("context", params.context, partial)
+		case 'plan_mode_respond':
+			return JSON.stringify({
+				response: StringUtils.removeTag("response", params.response, partial),
+				options: parsePartialArrayString(StringUtils.removeTag("options", params.options, partial)),
+				selected: content
+				} satisfies ClinePlanModeResponse)
+		case 'new_task':
+			return StringUtils.removeTag("context", params.context, partial)
 		case "search_files":
 			return JSON.stringify({
 				tool: "searchFiles",
@@ -27,7 +39,7 @@ export function toJSON({name, params, partial}:ToolUse, content?:string, overrid
 		case "list_code_definition_names"://list_code_definition_names
 			return toolToJSON('listCodeDefinitionNames', content ?? '', cwd, params.path, partial)
 		case 'list_files':
-			return toolToJSON((params.recursive === "true") ? "listFilesRecursive" : "listFilesTopLevel", content ?? '', cwd, params.path, partial)
+			return toolToJSON((params.recursive?.toLowerCase() === "true") ? "listFilesRecursive" : "listFilesTopLevel", content ?? '', cwd, params.path, partial)
 		case 'read_file':
 			return toolToJSON('readFile', content ?? '', cwd, params.path, partial)
 		case 'write_to_file':
@@ -38,9 +50,13 @@ export function toJSON({name, params, partial}:ToolUse, content?:string, overrid
 				type:"access_mcp_resource",
 				serverName: StringUtils.removeTag("server_name", params.server_name, partial),
 				uri: StringUtils.removeTag("uri", params.uri, partial)
-			} satisfies ClineAskUseMcpServer);
+			} satisfies ClineAskUseMcpServer)
 		case 'ask_followup_question':
-			return StringUtils.removeTag("question", params.question)
+			return JSON.stringify({
+				question: StringUtils.removeTag("question", params.question, partial),
+				options: parsePartialArrayString(StringUtils.removeTag("options", params.options, partial)),
+				selected: content,
+			} satisfies ClineAskQuestion);
 		case 'execute_command':
 			return StringUtils.removeTag("command", params.command)
 	}

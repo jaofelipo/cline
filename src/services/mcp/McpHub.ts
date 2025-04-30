@@ -545,61 +545,75 @@ export class McpHub {
 		}
 	}
 
-	async readResource(serverName: string, uri: string): Promise<McpResourceResponse> {
+	async readResource(serverName: string, uri: string): Promise<string> 
+	{
 		const connection = this.connections.find((conn) => conn.server.name === serverName)
-		if (!connection) {
+		if (!connection) 
 			throw new Error(`No connection found for server: ${serverName}`)
-		}
-		if (connection.server.disabled) {
+		if (connection.server.disabled) 
 			throw new Error(`Server "${serverName}" is disabled`)
-		}
 
-		return await connection.client.request(
-			{
-				method: "resources/read",
-				params: {
-					uri,
-				},
-			},
-			ReadResourceResultSchema,
-		)
+		const result = await connection.client.request(	{method: "resources/read", params: {uri}}, ReadResourceResultSchema)
+
+		return result?.contents
+				.map((item) => item.text || "")
+				.filter(Boolean)
+				.join("\n\n") || "(Empty response)";
 	}
 
-	async callTool(serverName: string, toolName: string, toolArguments?: Record<string, unknown>): Promise<McpToolCallResponse> {
+	async callTool(serverName: string, toolName: string, toolArguments?: Record<string, unknown>)
+	{
+		let toolResult: McpToolCallResponse
 		const connection = this.connections.find((conn) => conn.server.name === serverName)
-		if (!connection) {
-			throw new Error(
-				`No connection found for server: ${serverName}. Please make sure to use MCP servers available under 'Connected MCP Servers'.`,
-			)
+		if (!connection) 
+		{
+			toolResult = {
+				isError: true, 
+				content: [{
+					type: "text",
+					text: `No connection found for server: ${serverName}. Please make sure to use MCP servers available under 'Connected MCP Servers'.`}]}
 		}
-
-		if (connection.server.disabled) {
-			throw new Error(`Server "${serverName}" is disabled and cannot be used`)
+		else if (connection.server.disabled) 
+		{
+			toolResult = {
+				isError: true, 
+				content: [{
+					type: "text",
+					text: `Server "${serverName}" is disabled and cannot be used`}]}
 		}
+		else
+		{
+			let timeout = DEFAULT_MCP_TIMEOUT_SECONDS * 1000 // sdk expects ms
 
-		let timeout = secondsToMs(DEFAULT_MCP_TIMEOUT_SECONDS) // sdk expects ms
-
-		try {
-			const config = JSON.parse(connection.server.config)
-			const parsedConfig = ServerConfigSchema.parse(config)
-			timeout = secondsToMs(parsedConfig.timeout)
-		} catch (error) {
-			console.error(`Failed to parse timeout configuration for server ${serverName}: ${error}`)
-		}
-
-		return await connection.client.request(
+			try 
 			{
-				method: "tools/call",
-				params: {
-					name: toolName,
-					arguments: toolArguments,
-				},
-			},
-			CallToolResultSchema,
+				const config = JSON.parse(connection.server.config)
+				const parsedConfig = ServerConfigSchema.parse(config)
+				timeout = secondsToMs(parsedConfig.timeout)
+			} 
+			catch (error) 
 			{
-				timeout,
-			},
-		)
+				console.error(`Failed to parse timeout configuration for server ${serverName}: ${error}`)
+			}
+
+			toolResult = await connection.client.request({method: "tools/call", params: {name: toolName, arguments: toolArguments}}, CallToolResultSchema, {timeout})
+		}
+
+		const textParts = []
+		const images = []
+		for (const item of toolResult.content) 
+		{
+			if (item.type === "image") 
+			  	images.push(`data:${item.mimeType};base64,${item.data}`)
+			else if (item.type === "text") 
+			  	textParts.push(item.text)
+			else if (item.type === "resource") 
+			  textParts.push(JSON.stringify({uri: item.resource.uri, mimeType:item.resource.mimeType, text:item.resource.text}, null, 2))
+		}
+		let text = (toolResult.isError) ? "Error:\n" : ''
+		text += (textParts.length > 0) ? textParts.join("\n\n") : "(No response)"
+
+		return {text, images}
 	}
 
 	async toggleToolAutoApprove(serverName: string, toolNames: string[], shouldAllow: boolean): Promise<void> {

@@ -1,8 +1,9 @@
 import path from "path";
 import { Labels } from "./locale";
 import { serializeError } from "serialize-error";
-import { ToolUse } from "../core/assistant-message";
+import { ToolParamName, ToolUse } from "../core/assistant-message";
 import { LOCK_TEXT_SYMBOL } from "@/core/ignore/ClineIgnoreController";
+import { cwd } from "@/core/task";
 
 export const ptBr:Labels = {
     date:{
@@ -173,21 +174,28 @@ export const ptBr:Labels = {
                     return `[${block.name} for creating a new task]`
             }
         },
-        messages:{
-            search_files: (data:string[]) => `Cline wants to search files in ${path.basename(data[0])}/`,
-            list_code_definition_names:(data:string[]) => `Cline wants to view source code definitions in ${path.basename(data[0])}/`,
-            execute_command: (data:string[]) => '',
-            read_file: (data:string[]) => `Cline wants to read ${path.basename(data[0])}`,
-            write_to_file: (data:string[]) => `Cline wants to "edit" ${path.basename(data[0])}`,
-            replace_in_file: (data:string[]) => `Cline wants to "create" ${path.basename(data[0])}`,
-            list_files: (data:string[]) => `Cline wants to view directory ${path.basename(data[0])}/`,
-            browser_action: (data:string[]) => `Cline wants to use a browser and launch ${data[0]}`,
-            use_mcp_tool: (data:string[]) => `Cline wants to use ${data[0]} on ${data[1]}`,
-            access_mcp_resource: (data:string[]) => '',
-            ask_followup_question: (data:string[]) => '',
-            attempt_completion: (data:string[]) => '',
+        messages: (block:ToolUse) => {
+            switch(block.name)
+            {
+                case 'list_code_definition_names':
+                    return `Cline wants to view source code definitions in ${path.basename( path.resolve(cwd,  block.params.path!) )}/`
+                case 'search_files':
+                    return `Cline wants to search files in ${path.basename( path.resolve(cwd, block.params.path!))}/`
+                case 'access_mcp_resource':
+                    return `Cline wants to access ${block.params.uri} on ${block.params.server_name}`
+                case 'read_file':
+                    return `Cline wants to read ${path.basename( path.resolve(cwd, block.params.path!))}`
+                case 'list_files':
+                    return `Cline wants to view directory ${path.basename( path.resolve(cwd, block.params.path!) )}/`
+                case 'use_mcp_tool':
+                    return `Cline wants to use ${block.params.tool_name} on ${block.params.server_name!}`
+                case 'execute_command':
+                    return `Cline wants to execute a command: ${block.params.command}`
+                case 'browser_action':
+                    return `Cline wants to use a browser and launch ${block.params.url}`
+            }
+            return ''
         },
-
         titles:{
             execute_command: "executing command",
             read_file: "reading file",
