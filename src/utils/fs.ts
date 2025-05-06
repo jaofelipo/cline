@@ -104,7 +104,7 @@ export async function readDirectory (directoryPath: string)
 	}
 }
 
-async function ensureDirectory(...paths:string[]): Promise<string> 
+export async function ensureDirectory(...paths:string[]): Promise<string> 
 {
     return (paths.length && paths[0].length) ? await fs.mkdir(path.join(...paths), { recursive: true }) || "" : "";
 }

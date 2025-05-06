@@ -905,7 +905,7 @@ export class Task {
 		this.apiConversationHistory = await getSavedApiConversationHistory(this.contextBaseDir, this.taskId)
 
 		// load the context history state
-		await this.contextManager.initializeContextHistory(await ensureTaskDirectoryExists(this.contextBaseDir, this.taskId))
+		await this.contextManager.initializeContextHistory()
 
 		const lastClineMessage = this.clineMessages
 			.slice()

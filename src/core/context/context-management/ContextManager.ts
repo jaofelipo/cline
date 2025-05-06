@@ -1,7 +1,7 @@
 import { getContextWindowInfo } from "./context-window-utils"
 import { formatResponse } from "@core/prompts/responses"
 import { ensureTaskDirectoryExists, GlobalFileNames } from "@core/storage/disk"
-import { fileExistsAtPath } from "@utils/fs"
+import { fileExistsAtPath, loadFileAt } from "@utils/fs"
 import * as path from "path"
 import fs from "fs/promises"
 import cloneDeep from "clone-deep"
@@ -15,6 +15,13 @@ enum EditType {
 	READ_FILE_TOOL = 2,
 	ALTER_FILE_TOOL = 3,
 	FILE_MENTION = 4,
+}
+
+interface FileReadInfo {
+    messageIndex: number;
+    editType: number;
+    searchText: string;
+    replaceText: string;
 }
 
 // array of string values allows us to cover all changes for message types currently supported
@@ -65,31 +72,30 @@ export class ContextManager
 	/**
 	 * public function for loading contextHistoryUpdates from disk, if it exists
 	 */
-	async initializeContextHistory(taskDirectory: string) {
-		this.contextHistoryUpdates = await this.getSavedContextHistory(taskDirectory)
+	async initializeContextHistory() 
+	{
+		this.contextHistoryUpdates = await this.getSavedContextHistory()
 	}
 
 	/**
 	 * get the stored context history updates from disk
 	 */
-	private async getSavedContextHistory(taskDirectory: string): Promise<Map<number, [number, Map<number, ContextUpdate[]>]>> {
+	private async getSavedContextHistory(): Promise<Map<number, [number, Map<number, ContextUpdate[]>]>> 
+	{
+		const taskDirectory = await ensureTaskDirectoryExists(this.baseDir, this.taskId)
 		try {
-			const filePath = path.join(taskDirectory, GlobalFileNames.contextHistory)
-			if (await fileExistsAtPath(filePath)) {
-				const data = await fs.readFile(filePath, "utf8")
-				const serializedUpdates = JSON.parse(data) as SerializedContextHistory
 
-				// Update to properly reconstruct the tuple structure
-				return new Map(
-					serializedUpdates.map(([messageIndex, [numberValue, innerMapArray]]) => [
-						messageIndex,
-						[numberValue, new Map(innerMapArray)],
-					]),
-				)
-			}
-		} catch (error) {
-			console.error("Failed to load context history:", error)
-		}
+			const data = await loadFileAt(taskDirectory, GlobalFileNames.contextHistory)
+			const parsedData = JSON.parse(data ?? "") as SerializedContextHistory
+
+			// Update to properly reconstruct the tuple structure
+			return new Map(
+				parsedData.map(([messageIndex, [numberValue, innerMapArray]]) => [
+					messageIndex,
+					[numberValue, new Map(innerMapArray)],
+				]),
+			)
+		} catch (error) {}
 		return new Map()
 	}
 
@@ -104,14 +110,8 @@ export class ContextManager
 				([messageIndex, [numberValue, innerMap]]) => [messageIndex, [numberValue, Array.from(innerMap.entries())]],
 			)
 
-			await fs.writeFile(
-				path.join(taskDirectory, GlobalFileNames.contextHistory),
-				JSON.stringify(serializedUpdates),
-				"utf8",
-			)
-		} catch (error) {
-			console.error("Failed to save context history:", error)
-		}
+			await fs.writeFile(path.join(taskDirectory, GlobalFileNames.contextHistory), JSON.stringify(serializedUpdates), "utf8")			 
+		} catch (error) {}
 	}
 
 	/**
@@ -126,60 +126,58 @@ export class ContextManager
 		let updatedConversationHistoryDeletedRange = false
 
 		// If the previous API request's total token usage is close to the context window, truncate the conversation history to free up space for the new request
-		if (previousRequest) 
+		if (previousRequest && previousRequest.text) 
 		{
-			
-			if (previousRequest && previousRequest.text) {
-				const timestamp = previousRequest.ts
-				const { tokensIn, tokensOut, cacheWrites, cacheReads }: ClineApiReqInfo = JSON.parse(previousRequest.text)
-				const totalTokens = (tokensIn || 0) + (tokensOut || 0) + (cacheWrites || 0) + (cacheReads || 0)
-				const { maxAllowedSize } = getContextWindowInfo(api)
+			const timestamp = previousRequest.ts
+			const { tokensIn, tokensOut, cacheWrites, cacheReads }: ClineApiReqInfo = JSON.parse(previousRequest.text)
+			const totalTokens = (tokensIn || 0) + (tokensOut || 0) + (cacheWrites || 0) + (cacheReads || 0)
+			const { maxAllowedSize } = getContextWindowInfo(api)
 
-				// This is the most reliable way to know when we're close to hitting the context window.
-				if (totalTokens >= maxAllowedSize) {
-					// Since the user may switch between models with different context windows, truncating half may not be enough (ie if switching from claude 200k to deepseek 64k, half truncation will only remove 100k tokens, but we need to remove much more)
-					// So if totalTokens/2 is greater than maxAllowedSize, we truncate 3/4 instead of 1/2
-					const keep = totalTokens / 2 > maxAllowedSize ? "quarter" : "half"
+			// This is the most reliable way to know when we're close to hitting the context window.
+			if (totalTokens >= maxAllowedSize) {
+				// Since the user may switch between models with different context windows, truncating half may not be enough (ie if switching from claude 200k to deepseek 64k, half truncation will only remove 100k tokens, but we need to remove much more)
+				// So if totalTokens/2 is greater than maxAllowedSize, we truncate 3/4 instead of 1/2
+				const keep = totalTokens / 2 > maxAllowedSize ? "quarter" : "half"
 
-					// we later check how many chars we trim to determine if we should still truncate history
-					let [anyContextUpdates, uniqueFileReadIndices] = this.applyContextOptimizations(
+				// we later check how many chars we trim to determine if we should still truncate history
+				let [anyContextUpdates, uniqueFileReadIndices] = this.applyContextOptimizations(
+					apiConversationHistory,
+					conversationHistoryDeletedRange ? conversationHistoryDeletedRange[1] + 1 : 2,
+					timestamp,
+				)
+
+				let needToTruncate = true
+				if (anyContextUpdates) {
+					// determine whether we've saved enough chars to not truncate
+					const charactersSavedPercentage = this.calculateContextOptimizationMetrics(
 						apiConversationHistory,
-						conversationHistoryDeletedRange ? conversationHistoryDeletedRange[1] + 1 : 2,
-						timestamp,
+						conversationHistoryDeletedRange,
+						uniqueFileReadIndices,
 					)
-
-					let needToTruncate = true
-					if (anyContextUpdates) {
-						// determine whether we've saved enough chars to not truncate
-						const charactersSavedPercentage = this.calculateContextOptimizationMetrics(
-							apiConversationHistory,
-							conversationHistoryDeletedRange,
-							uniqueFileReadIndices,
-						)
-						if (charactersSavedPercentage >= 0.3) {
-							needToTruncate = false
-						}
-					}
-
-					if (needToTruncate) {
-						// go ahead with truncation
-						anyContextUpdates = this.applyStandardContextTruncationNoticeChange(timestamp) || anyContextUpdates
-
-						// NOTE: it's okay that we overwriteConversationHistory in resume task since we're only ever removing the last user message and not anything in the middle which would affect this range
-						conversationHistoryDeletedRange = this.getNextTruncationRange(
-							apiConversationHistory,
-							conversationHistoryDeletedRange,
-							keep,
-						)
-
-						updatedConversationHistoryDeletedRange = true
-					}
-
-					// if we alter the context history, save the updated version to disk
-					if (anyContextUpdates) {
-						await this.saveContextHistory()
+					if (charactersSavedPercentage >= 0.3) {
+						needToTruncate = false
 					}
 				}
+
+				if (needToTruncate) {
+					// go ahead with truncation
+					anyContextUpdates = this.applyStandardContextTruncationNoticeChange(timestamp) || anyContextUpdates
+
+					// NOTE: it's okay that we overwriteConversationHistory in resume task since we're only ever removing the last user message and not anything in the middle which would affect this range
+					conversationHistoryDeletedRange = this.getNextTruncationRange(
+						apiConversationHistory,
+						conversationHistoryDeletedRange,
+						keep,
+					)
+
+					updatedConversationHistoryDeletedRange = true
+				}
+
+				// if we alter the context history, save the updated version to disk
+				if (anyContextUpdates) {
+					await this.saveContextHistory()
+				}
+				
 			}
 		}
 
@@ -441,15 +439,15 @@ export class ContextManager
 	private getPossibleDuplicateFileReads(
 		apiMessages: Anthropic.Messages.MessageParam[],
 		startFromIndex: number,
-	): [Map<string, [number, number, string, string][]>, Map<number, string[]>] {
-		// fileReadIndices: { fileName => [outerIndex, EditType, searchText, replaceText] }
+	): [Map<string, FileReadInfo[]>, Map<number, string[]>] {
+		// fileReadIndices: { fileName => {messageIndex: number, editType: number, searchText: string, replaceText: string}[] }
 		// messageFilePaths: { outerIndex => [fileRead1, fileRead2, ..] }
 		// searchText in fileReadIndices is only required for file mention file-reads since there can be more than one file in the text
 		// searchText will be the empty string "" in the case that it's not required, for non-file mentions
 		// messageFilePaths is only used for file mentions as there can be multiple files read in the same text chunk
 
 		// for all text blocks per file, has info for updating the block
-		const fileReadIndices = new Map<string, [number, number, string, string][]>()
+		const fileReadIndices = new Map<string, FileReadInfo[]>()
 
 		// for file mention text blocks, track all the unique files read
 		const messageFilePaths = new Map<number, string[]>()
@@ -545,7 +543,7 @@ export class ContextManager
 	private handlePotentialFileMentionCalls(
 		i: number,
 		secondBlockText: string,
-		fileReadIndices: Map<string, [number, number, string, string][]>,
+		fileReadIndices: Map<string, FileReadInfo[]>,
 		thisExistingFileReads: string[],
 	): [boolean, string[]] {
 		const pattern = new RegExp(`<file_content path="([^"]*)">([\\s\\S]*?)</file_content>`, "g")
@@ -570,7 +568,7 @@ export class ContextManager
 				const replacementText = `<file_content path="${filePath}">${formatResponse.duplicateFileReadNotice()}</file_content>`
 
 				const indices = fileReadIndices.get(filePath) || []
-				indices.push([i, EditType.FILE_MENTION, entireMatch, replacementText])
+				indices.push({messageIndex: i, editType: EditType.FILE_MENTION, searchText: entireMatch, replaceText: replacementText});
 				fileReadIndices.set(filePath, indices)
 			}
 		}
@@ -597,10 +595,10 @@ export class ContextManager
 	private handleReadFileToolCall(
 		i: number,
 		filePath: string,
-		fileReadIndices: Map<string, [number, number, string, string][]>,
+		fileReadIndices: Map<string, FileReadInfo[]>,
 	) {
 		const indices = fileReadIndices.get(filePath) || []
-		indices.push([i, EditType.READ_FILE_TOOL, "", formatResponse.duplicateFileReadNotice()])
+		indices.push({messageIndex: i, editType: EditType.READ_FILE_TOOL, searchText: "", replaceText: formatResponse.duplicateFileReadNotice()})
 		fileReadIndices.set(filePath, indices)
 	}
 
@@ -611,7 +609,7 @@ export class ContextManager
 		i: number,
 		filePath: string,
 		secondBlockText: string,
-		fileReadIndices: Map<string, [number, number, string, string][]>,
+		fileReadIndices: Map<string, FileReadInfo[]>,
 	) {
 		const pattern = new RegExp(`(<final_file_content path="[^"]*">)[\\s\\S]*?(</final_file_content>)`)
 
@@ -619,7 +617,7 @@ export class ContextManager
 		if (pattern.test(secondBlockText)) {
 			const replacementText = secondBlockText.replace(pattern, `$1 ${formatResponse.duplicateFileReadNotice()} $2`)
 			const indices = fileReadIndices.get(filePath) || []
-			indices.push([i, EditType.ALTER_FILE_TOOL, "", replacementText])
+			indices.push({messageIndex: i, editType: EditType.ALTER_FILE_TOOL, searchText: "", replaceText: replacementText});
 			fileReadIndices.set(filePath, indices)
 		}
 	}
@@ -629,7 +627,7 @@ export class ContextManager
 	 * returns the outer index of messages we alter, to count number of changes
 	 */
 	private applyFileReadContextHistoryUpdates(
-		fileReadIndices: Map<string, [number, number, string, string][]>,
+		fileReadIndices: Map<string, FileReadInfo[]>,
 		messageFilePaths: Map<number, string[]>,
 		apiMessages: Anthropic.Messages.MessageParam[],
 		timestamp: number,
@@ -640,13 +638,14 @@ export class ContextManager
 
 		for (const [filePath, indices] of fileReadIndices.entries()) {
 			// Only process if there are multiple reads of the same file, else we will want to keep the latest read of the file
-			if (indices.length > 1) {
+			if (indices.length > 1) 
+			{
 				// Process all but the last index, as we will keep that instance of the file read
-				for (let i = 0; i < indices.length - 1; i++) {
-					const messageIndex = indices[i][0]
-					const messageType = indices[i][1] // EditType value
-					const searchText = indices[i][2] // search text (for file mentions, else empty string)
-					const messageString = indices[i][3] // what we will replace the string with
+				for (const indexInfo of indices.slice(0, indices.length - 1)) {
+					const messageIndex = indexInfo.messageIndex
+					const messageType = indexInfo.editType // EditType value
+					const searchText = indexInfo.searchText // search text (for file mentions, else empty string)
+					const messageString = indexInfo.replaceText // what we will replace the string with
 
 					didUpdate = true
 					updatedMessageIndices.add(messageIndex)
