@@ -67,6 +67,11 @@ export class Controller {
 	accountService: ClineAccountService
 	private latestAnnouncementId = "may-02-2025_16:27:00" // update to some unique identifier when we add a new announcement
 
+	public get contextFileDir():string
+	{
+		return this.context.globalStorageUri.fsPath
+	}
+
 	constructor(
 		readonly context: vscode.ExtensionContext,
 		private readonly outputChannel: vscode.OutputChannel,
@@ -78,7 +83,7 @@ export class Controller {
 		this.workspaceTracker = new WorkspaceTracker((msg) => this.postMessageToWebview(msg))
 		this.mcpHub = new McpHub(
 			() => ensureMcpServersDirectoryExists(),
-			() => ensureSettingsDirectoryExists(this.context),
+			() => ensureSettingsDirectoryExists(context.globalStorageUri.fsPath),
 			(msg) => this.postMessageToWebview(msg),
 			this.context.extension?.packageJSON?.version ?? "1.0.0",
 		)

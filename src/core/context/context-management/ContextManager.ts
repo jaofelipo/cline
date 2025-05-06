@@ -110,17 +110,17 @@ export class ContextManager {
 	 */
 	async getNewContextMessagesAndMetadata(
 		apiConversationHistory: Anthropic.Messages.MessageParam[],
-		clineMessages: ClineMessage[],
 		api: ApiHandler,
 		conversationHistoryDeletedRange: [number, number] | undefined,
-		previousApiReqIndex: number,
 		taskDirectory: string,
+		previousRequest?: ClineMessage,
 	) {
 		let updatedConversationHistoryDeletedRange = false
 
 		// If the previous API request's total token usage is close to the context window, truncate the conversation history to free up space for the new request
-		if (previousApiReqIndex >= 0) {
-			const previousRequest = clineMessages[previousApiReqIndex]
+		if (previousRequest) 
+		{
+			
 			if (previousRequest && previousRequest.text) {
 				const timestamp = previousRequest.ts
 				const { tokensIn, tokensOut, cacheWrites, cacheReads }: ClineApiReqInfo = JSON.parse(previousRequest.text)

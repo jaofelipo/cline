@@ -3,15 +3,15 @@ import { getTaskMetadata, saveTaskMetadata } from "@core/storage/disk"
 
 export class ModelContextTracker {
 	readonly taskId: string
-	private context: vscode.ExtensionContext
+	private baseDir: string
 
-	constructor(context: vscode.ExtensionContext, taskId: string) {
-		this.context = context
+	constructor(baseDir:string, taskId: string) {
+		this.baseDir = baseDir
 		this.taskId = taskId
 	}
 
 	async recordModelUsage(apiProviderId: string, modelId: string, mode: string) {
-		const metadata = await getTaskMetadata(this.context, this.taskId)
+		const metadata = await getTaskMetadata(this.baseDir, this.taskId)
 
 		if (!metadata.model_usage) {
 			metadata.model_usage = []
@@ -35,6 +35,6 @@ export class ModelContextTracker {
 			mode: mode,
 		})
 
-		await saveTaskMetadata(this.context, this.taskId, metadata)
+		await saveTaskMetadata(this.baseDir, this.taskId, metadata)
 	}
 }

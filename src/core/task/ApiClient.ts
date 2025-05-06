@@ -1,16 +1,15 @@
-import { ApiStream } from "@/api/transform/stream";
-import pWaitFor from "p-wait-for";
+import { ApiStream } from "@/api/transform/stream"
+import pWaitFor from "p-wait-for"
 import * as vscode from "vscode"
-import { addUserInstructions, SYSTEM_PROMPT } from "../prompts/system";
-import { DEFAULT_LANGUAGE_SETTINGS, getLanguageKey, LanguageDisplay } from "@/shared/Languages";
-import { getGlobalClineRules, getLocalClineRules, refreshClineRulesToggles } from "../context/instructions/user-instructions/cline-rules";
-import { getLocalCursorRules, getLocalWindsurfRules, refreshExternalRulesToggles } from "../context/instructions/user-instructions/external-rules";
-import { ensureRulesDirectoryExists, ensureTaskDirectoryExists } from "../storage/disk";
-import { formatResponse } from "../prompts/responses";
-import { cwd, Task } from ".";
-import { OpenRouterHandler } from "@/api/providers/openrouter";
-import { ClineHandler } from "@/api/providers/cline";
-import { AnthropicHandler } from "@/api/providers/anthropic";
+import { addUserInstructions, SYSTEM_PROMPT } from "../prompts/system"
+import { DEFAULT_LANGUAGE_SETTINGS, getLanguageKey, LanguageDisplay } from "@/shared/Languages"
+import { getGlobalClineRules, getLocalClineRules, refreshClineRulesToggles } from "../context/instructions/user-instructions/cline-rules"
+import { getLocalCursorRules, getLocalWindsurfRules, refreshExternalRulesToggles } from "../context/instructions/user-instructions/external-rules"
+import { ensureRulesDirectoryExists, ensureTaskDirectoryExists } from "../storage/disk"
+import { formatResponse } from "../prompts/responses"
+import { cwd, Task } from "."
+import { OpenRouterHandler } from "@/api/providers/openrouter"
+import { ClineHandler } from "@/api/providers/cline"
 import { setTimeout as delay } from "node:timers/promises"
 
 export class ApiClient 
@@ -31,21 +30,22 @@ export class ApiClient
 
 		const systemPrompt = await this.createSystemPrompt(task)
 
-		const contextManagementMetadata = await task.contextManager.getNewContextMessagesAndMetadata(
+		const previousRequest = (previousApiReqIndex >= 0) ? task.clineMessages[previousApiReqIndex] : undefined
+
+		const contextMetadata = await task.contextManager.getNewContextMessagesAndMetadata(
 			task.apiConversationHistory,
-			task.clineMessages,
 			task.api,
 			task.conversationHistoryDeletedRange,
-			previousApiReqIndex,
-			await ensureTaskDirectoryExists(task.getContext(), task.taskId),
+			await ensureTaskDirectoryExists(task.contextBaseDir, task.taskId),
+			previousRequest
 		)
 
-		if (contextManagementMetadata.updatedConversationHistoryDeletedRange) {
-			task.conversationHistoryDeletedRange = contextManagementMetadata.conversationHistoryDeletedRange
+		if (contextMetadata.updatedConversationHistoryDeletedRange) {
+			task.conversationHistoryDeletedRange = contextMetadata.conversationHistoryDeletedRange
 			await task.saveClineMessagesAndUpdateHistory() // saves task history item which we use to keep track of conversation history deleted range
 		}
 
-		let stream = task.api.createMessage(systemPrompt, contextManagementMetadata.truncatedConversationHistory)
+		let stream = task.api.createMessage(systemPrompt, contextMetadata.truncatedConversationHistory)
 
 		const iterator = stream[Symbol.asyncIterator]()
 
@@ -204,7 +204,7 @@ export class ApiClient
 		await task.saveClineMessagesAndUpdateHistory()
 		await task.contextManager.triggerApplyStandardContextTruncationNoticeChange(
 			Date.now(),
-			await ensureTaskDirectoryExists(task.getContext(), task.taskId),
+			await ensureTaskDirectoryExists(task.contextBaseDir, task.taskId),
 		)
 	}
 }

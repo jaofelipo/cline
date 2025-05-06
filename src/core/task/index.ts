@@ -219,8 +219,8 @@ export class Task {
 		}
 
 		// Initialize file context tracker
-		this.fileContextTracker = new FileContextTracker(context, this.taskId)
-		this.modelContextTracker = new ModelContextTracker(context, this.taskId)
+		this.fileContextTracker = new FileContextTracker(this.contextBaseDir, this.taskId)
+		this.modelContextTracker = new ModelContextTracker(this.contextBaseDir, this.taskId)
 		// Now that taskId is initialized, we can build the API handler
 		this.api = buildApiHandler({
 			...apiConfiguration,
@@ -257,15 +257,20 @@ export class Task {
 		return context
 	}
 
+	public get contextBaseDir():string
+	{
+		return this.context.globalStorageUri.fsPath
+	}
+
 	// Storing task to disk for history
 	private async addToApiConversationHistory(message: Anthropic.MessageParam) {
 		this.apiConversationHistory.push(message)
-		await saveApiConversationHistory(this.getContext(), this.taskId, this.apiConversationHistory)
+		await saveApiConversationHistory(this.contextBaseDir, this.taskId, this.apiConversationHistory)
 	}
 
 	private async overwriteApiConversationHistory(newHistory: Anthropic.MessageParam[]) {
 		this.apiConversationHistory = newHistory
-		await saveApiConversationHistory(this.getContext(), this.taskId, this.apiConversationHistory)
+		await saveApiConversationHistory(this.contextBaseDir, this.taskId, this.apiConversationHistory)
 	}
 
 	private async addToClineMessages(message: ClineMessage) {
@@ -284,7 +289,7 @@ export class Task {
 
 	public async saveClineMessagesAndUpdateHistory() {
 		try {
-			await saveClineMessages(this.getContext(), this.taskId, this.clineMessages)
+			await saveClineMessages(this.contextBaseDir, this.taskId, this.clineMessages)
 
 			// combined as they are in ChatView
 			const apiMetrics = getApiMetrics(combineApiRequests(combineCommandSequences(this.clineMessages.slice(1))))
@@ -293,7 +298,7 @@ export class Task {
 				this.clineMessages[
 					findLastIndex(this.clineMessages, (m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task"))
 				]
-			const taskDir = await ensureTaskDirectoryExists(this.getContext(), this.taskId)
+			const taskDir = await ensureTaskDirectoryExists(this.contextBaseDir, this.taskId)
 			let taskDirSize = 0
 			try {
 				// getFolderSize.loose silently ignores errors
@@ -341,7 +346,7 @@ export class Task {
 			case "workspace":
 				if (!this.checkpointTracker && !this.checkpointTrackerErrorMessage) {
 					try {
-						this.checkpointTracker = await CheckpointTracker.create(this.taskId, this.context.globalStorageUri.fsPath)
+						this.checkpointTracker = await CheckpointTracker.create(this.taskId, this.contextBaseDir)
 					} catch (error) {
 						const errorMessage = error instanceof Error ? error.message : "Unknown error"
 						console.error("Failed to initialize checkpoint tracker:", errorMessage)
@@ -385,7 +390,7 @@ export class Task {
 					// update the context history state
 					await this.contextManager.truncateContextHistory(
 						message.ts,
-						await ensureTaskDirectoryExists(this.getContext(), this.taskId),
+						await ensureTaskDirectoryExists(this.contextBaseDir, this.taskId),
 					)
 
 					// aggregate deleted api reqs info so we don't lose costs/tokens
@@ -467,7 +472,7 @@ export class Task {
 		// TODO: handle if this is called from outside original workspace, in which case we need to show user error message we can't show diff outside of workspace?
 		if (!this.checkpointTracker && !this.checkpointTrackerErrorMessage) {
 			try {
-				this.checkpointTracker = await CheckpointTracker.create(this.taskId, this.context.globalStorageUri.fsPath)
+				this.checkpointTracker = await CheckpointTracker.create(this.taskId, this.contextBaseDir)
 			} catch (error) {
 				const errorMessage = error instanceof Error ? error.message : "Unknown error"
 				console.error("Failed to initialize checkpoint tracker:", errorMessage)
@@ -579,7 +584,7 @@ export class Task {
 
 		if (!this.checkpointTracker && !this.checkpointTrackerErrorMessage) {
 			try {
-				this.checkpointTracker = await CheckpointTracker.create(this.taskId, this.context.globalStorageUri.fsPath)
+				this.checkpointTracker = await CheckpointTracker.create(this.taskId, this.contextBaseDir)
 			} catch (error) {
 				const errorMessage = error instanceof Error ? error.message : "Unknown error"
 				console.error("Failed to initialize checkpoint tracker:", errorMessage)
@@ -882,7 +887,7 @@ export class Task {
 		// 	this.checkpointTrackerErrorMessage = "Checkpoints are only available for new tasks"
 		// }
 
-		const modifiedClineMessages = await getSavedClineMessages(this.getContext(), this.taskId)
+		const modifiedClineMessages = await getSavedClineMessages(this.contextBaseDir, this.taskId)
 
 		// Remove any resume messages that may have been added before
 		const lastRelevantMessageIndex = findLastIndex(
@@ -907,14 +912,14 @@ export class Task {
 		}
 
 		await this.overwriteClineMessages(modifiedClineMessages)
-		this.clineMessages = await getSavedClineMessages(this.getContext(), this.taskId)
+		this.clineMessages = await getSavedClineMessages(this.contextBaseDir, this.taskId)
 
 		// Now present the cline messages to the user and ask if they want to resume (NOTE: we ran into a bug before where the apiconversationhistory wouldn't be initialized when opening a old task, and it was because we were waiting for resume)
 		// This is important in case the user deletes messages without resuming the task first
-		this.apiConversationHistory = await getSavedApiConversationHistory(this.getContext(), this.taskId)
+		this.apiConversationHistory = await getSavedApiConversationHistory(this.contextBaseDir, this.taskId)
 
 		// load the context history state
-		await this.contextManager.initializeContextHistory(await ensureTaskDirectoryExists(this.getContext(), this.taskId))
+		await this.contextManager.initializeContextHistory(await ensureTaskDirectoryExists(this.contextBaseDir, this.taskId))
 
 		const lastClineMessage = this.clineMessages
 			.slice()
@@ -943,7 +948,7 @@ export class Task {
 		// need to make sure that the api conversation history can be resumed by the api, even if it goes out of sync with cline messages
 
 		const existingApiConversationHistory: Anthropic.Messages.MessageParam[] = await getSavedApiConversationHistory(
-			this.getContext(),
+			this.contextBaseDir,
 			this.taskId,
 		)
 
@@ -2962,7 +2967,7 @@ export class Task {
 									await this.saveClineMessagesAndUpdateHistory()
 									await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(
 										Date.now(),
-										await ensureTaskDirectoryExists(this.getContext(), this.taskId),
+										await ensureTaskDirectoryExists(this.contextBaseDir, this.taskId),
 									)
 								}
 								await this.saveCheckpoint()
@@ -3355,7 +3360,7 @@ export class Task {
 		if (!this.checkpointTracker && !this.checkpointTrackerErrorMessage) {
 			try {
 				this.checkpointTracker = await pTimeout(
-					CheckpointTracker.create(this.taskId, this.context.globalStorageUri.fsPath),
+					CheckpointTracker.create(this.taskId, this.contextBaseDir),
 					{
 						milliseconds: 15_000,
 						message:
