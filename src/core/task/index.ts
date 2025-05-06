@@ -2,7 +2,7 @@ import { Anthropic } from "@anthropic-ai/sdk"
 import cloneDeep from "clone-deep"
 import { execa } from "execa"
 import getFolderSize from "get-folder-size"
-import { setTimeout as setTimeoutPromise } from "node:timers/promises"
+import { setTimeout as delay } from "node:timers/promises"
 import os from "os"
 import pTimeout from "p-timeout"
 import pWaitFor from "p-wait-for"
@@ -59,7 +59,7 @@ import { calculateApiCostAnthropic } from "@utils/cost"
 import { fileExistsAtPath } from "@utils/fs"
 import { arePathsEqual, getReadablePath, isLocatedInWorkspace } from "@utils/path"
 import { fixModelHtmlEscaping, removeInvalidChars } from "@utils/string"
-import { AssistantMessageContent, parseAssistantMessage, ToolParamName, ToolUseName } from "@core/assistant-message"
+import { AssistantMessageContent, ToolParamName, ToolUseName } from "@core/assistant-message"
 import { constructNewFileContent } from "@core/assistant-message/diff"
 import { ClineIgnoreController } from "@core/ignore/ClineIgnoreController"
 import { parseMentions } from "@core/mentions"
@@ -99,6 +99,7 @@ import WorkspaceTracker from "@integrations/workspace/WorkspaceTracker"
 import { McpHub } from "@services/mcp/McpHub"
 import { isInTestMode } from "../../services/test/TestMode"
 import { AssistantMessageParser } from "../assistant-message/AssistantMessageParser"
+
 
 export const cwd =
 	vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? path.join(os.homedir(), "Desktop") // may or may not exist but fs checking existence would immediately ask for permission which would be bad UX, need to come up with a better solution
@@ -1329,7 +1330,7 @@ export class Task {
 		// for their associated messages to be sent to the webview, maintaining
 		// the correct order of messages (although the webview is smart about
 		// grouping command_output messages despite any gaps anyways)
-		await setTimeoutPromise(50)
+		await delay(50)
 
 		result = result.trim()
 
@@ -1551,7 +1552,7 @@ export class Task {
 				}
 
 				console.log("first chunk failed, waiting 1 second before retrying")
-				await setTimeoutPromise(1000)
+				await delay(1000)
 				this.didAutomaticallyRetryFailedApiRequest = true
 			} else {
 				// request failed after retrying automatically once, ask user if they want to retry again
@@ -2021,7 +2022,7 @@ export class Task {
 									await this.diffViewProvider.open(relPath)
 								}
 								await this.diffViewProvider.update(newContent, true)
-								await setTimeoutPromise(300) // wait for diff view to update
+								await delay(300) // wait for diff view to update
 								this.diffViewProvider.scrollToFirstDiff()
 								// showOmissionWarning(this.diffViewProvider.originalContent || "", newContent)
 
@@ -2043,7 +2044,7 @@ export class Task {
 									telemetryService.captureToolUsage(this.taskId, block.name, true, true)
 
 									// we need an artificial delay to let the diagnostics catch up to the changes
-									await setTimeoutPromise(3_500)
+									await delay(3_500)
 								} else {
 									// If auto-approval is enabled but this tool wasn't auto-approved, send notification
 									showNotificationForApprovalIfAutoApprovalEnabled(
@@ -3666,7 +3667,8 @@ export class Task {
 			this.isStreaming = true
 			let didReceiveUsageChunk = false
 			try {
-				for await (const chunk of stream) {
+				for await (const chunk of stream) 
+				{
 					if (!chunk) {
 						continue
 					}
@@ -3696,7 +3698,6 @@ export class Task {
 							// parse raw assistant message into content blocks
 							const prevLength = this.assistantMessageContent.length
 							this.assistantMessageContent = parser.parseChunk( chunk.text )
-							//this.assistantMessageContent = parseAssistantMessage(assistantMessage)
 							if (this.assistantMessageContent.length > prevLength) {
 								this.userMessageContentReady = false // new content we need to present, reset to false in case previous content set this to true
 							}
@@ -3946,7 +3947,7 @@ export class Task {
 
 		if (busyTerminals.length > 0 && this.didEditFile) {
 			//  || this.didEditFile
-			await setTimeoutPromise(300) // delay after saving file to let terminals catch up
+			await delay(300) // delay after saving file to let terminals catch up
 		}
 
 		// let terminalWasBusy = false
