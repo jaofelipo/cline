@@ -1762,7 +1762,7 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			((await getWorkspaceState(this.context, "localCursorRulesToggles")) as ClineRulesToggles) || {}
 
 		return {
-			version: this.context.extension?.packageJSON?.version ?? "",
+			version: "Tielo: " + (this.context.extension?.packageJSON?.version ?? ""),
 			apiConfiguration,
 			customInstructions,
 			uriScheme: vscode.env.uriScheme,
