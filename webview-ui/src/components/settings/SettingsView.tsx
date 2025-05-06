@@ -282,7 +282,7 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 							https://github.com/cline/cline
 						</VSCodeLink>
 					</p>
-					<p className="italic mt-[10px] mb-0 p-0">v{version}</p>
+					<p className="italic mt-[10px] mb-0 p-0">Tielo Version: {version}</p>
 				</div>
 			</div>
 		</div>
