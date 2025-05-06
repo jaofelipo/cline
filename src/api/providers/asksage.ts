@@ -112,4 +112,9 @@ export class AskSageHandler implements ApiHandler {
 			info: askSageModels[askSageDefaultModelId],
 		}
 	}
+
+	isContextWindowError(error:any):boolean
+	{
+		return false
+	}
 }

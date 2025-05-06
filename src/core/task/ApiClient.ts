@@ -154,25 +154,21 @@ export class ApiClient
 
 	private async handleFirstChunkError(error: any, task: Task): Promise<boolean>
 	{
-		const isOpenRouter = task.api instanceof OpenRouterHandler || task.api instanceof ClineHandler
-		const isAnthropic = task.api instanceof AnthropicHandler
+		const contextError = task.api.isContextWindowError(error)
 	
-		const openRouterContextError = isOpenRouter && this.checkIsOpenRouterContextWindowError(error)
-		const anthropicContextError = isAnthropic && this.checkIsAnthropicContextWindowError(error)
-	
-		if ((openRouterContextError || anthropicContextError) && this.shouldAutoRetry) 
+		if (contextError && this.shouldAutoRetry) 
 		{
 			await this.truncateAndRetry(task)
 			this.shouldAutoRetry = false
 	
-			if (isOpenRouter) 
+			if (task.api instanceof OpenRouterHandler || task.api instanceof ClineHandler) 
 				await delay(1000)
 			return true
 		}
 
 		// request failed after retrying automatically once, ask user if they want to retry again
 		// note that this api_req_failed ask is unique in that we only present this option if the api hasn't streamed any content yet
-		if (openRouterContextError || anthropicContextError) 
+		if (contextError) 
 		{
 			const truncated = task.contextManager.getTruncatedMessages(
 				task.apiConversationHistory,
@@ -211,23 +207,4 @@ export class ApiClient
 			await ensureTaskDirectoryExists(task.getContext(), task.taskId),
 		)
 	}
-
-	private checkIsOpenRouterContextWindowError(error: any): boolean {
-		try {
-			return error.code === 400 && error.message?.includes("context length")
-		} catch (e: unknown) {
-			return false
-		}
-	}
-	
-	private checkIsAnthropicContextWindowError(response: any): boolean {
-		try {
-			return (
-				response?.error?.error?.type === "invalid_request_error" &&
-				response?.error?.error?.message?.includes("prompt is too long")
-			)
-		} catch (e: unknown) {
-			return false
-		}
-	}	
 }

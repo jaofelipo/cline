@@ -63,4 +63,8 @@ export class MistralHandler implements ApiHandler {
 			info: mistralModels[mistralDefaultModelId],
 		}
 	}
+	isContextWindowError(error:any):boolean
+	{
+		return false
+	}	
 }

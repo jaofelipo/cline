@@ -110,4 +110,9 @@ export class DeepSeekHandler implements ApiHandler {
 			info: deepSeekModels[deepSeekDefaultModelId],
 		}
 	}
+
+	isContextWindowError(error:any):boolean
+	{
+		return false
+	}
 }
