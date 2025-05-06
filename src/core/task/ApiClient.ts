@@ -5,7 +5,7 @@ import { addUserInstructions, SYSTEM_PROMPT } from "../prompts/system"
 import { DEFAULT_LANGUAGE_SETTINGS, getLanguageKey, LanguageDisplay } from "@/shared/Languages"
 import { getGlobalClineRules, getLocalClineRules, refreshClineRulesToggles } from "../context/instructions/user-instructions/cline-rules"
 import { getLocalCursorRules, getLocalWindsurfRules, refreshExternalRulesToggles } from "../context/instructions/user-instructions/external-rules"
-import { ensureRulesDirectoryExists, ensureTaskDirectoryExists } from "../storage/disk"
+import { ensureRulesDirectoryExists } from "../storage/disk"
 import { formatResponse } from "../prompts/responses"
 import { cwd, Task } from "."
 import { OpenRouterHandler } from "@/api/providers/openrouter"
@@ -36,7 +36,6 @@ export class ApiClient
 			task.apiConversationHistory,
 			task.api,
 			task.conversationHistoryDeletedRange,
-			await ensureTaskDirectoryExists(task.contextBaseDir, task.taskId),
 			previousRequest
 		)
 
@@ -202,9 +201,6 @@ export class ApiClient
 		)
 	
 		await task.saveClineMessagesAndUpdateHistory()
-		await task.contextManager.triggerApplyStandardContextTruncationNoticeChange(
-			Date.now(),
-			await ensureTaskDirectoryExists(task.contextBaseDir, task.taskId),
-		)
+		await task.contextManager.triggerApplyStandardContextTruncationNoticeChange(Date.now())
 	}
 }

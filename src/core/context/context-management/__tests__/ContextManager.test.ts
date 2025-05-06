@@ -27,7 +27,7 @@ describe("ContextManager", () => {
 		let contextManager: ContextManager
 
 		beforeEach(() => {
-			contextManager = new ContextManager()
+			contextManager = new ContextManager("", "")
 		})
 
 		it("first truncation with half keep", () => {
@@ -104,7 +104,7 @@ describe("ContextManager", () => {
 		let contextManager: ContextManager
 
 		beforeEach(() => {
-			contextManager = new ContextManager()
+			contextManager = new ContextManager("", "")
 		})
 
 		it("returns original messages when no range is provided", () => {

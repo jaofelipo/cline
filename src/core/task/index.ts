@@ -53,7 +53,6 @@ import {
 } from "@shared/ExtensionMessage"
 import { getApiMetrics } from "@shared/getApiMetrics"
 import { HistoryItem } from "@shared/HistoryItem"
-import { DEFAULT_LANGUAGE_SETTINGS, getLanguageKey, LanguageDisplay } from "@shared/Languages"
 import { ClineAskResponse, ClineCheckpointRestore } from "@shared/WebviewMessage"
 import { calculateApiCostAnthropic } from "@utils/cost"
 import { fileExistsAtPath } from "@utils/fs"
@@ -64,7 +63,6 @@ import { constructNewFileContent } from "@core/assistant-message/diff"
 import { ClineIgnoreController } from "@core/ignore/ClineIgnoreController"
 import { parseMentions } from "@core/mentions"
 import { formatResponse } from "@core/prompts/responses"
-import { addUserInstructions, SYSTEM_PROMPT } from "@core/prompts/system"
 import { getContextWindowInfo } from "@core/context/context-management/context-window-utils"
 import { FileContextTracker } from "@core/context/context-tracking/FileContextTracker"
 import { ModelContextTracker } from "@core/context/context-tracking/ModelContextTracker"
@@ -78,17 +76,8 @@ import {
 	saveApiConversationHistory,
 	saveClineMessages,
 } from "@core/storage/disk"
-import {
-	getGlobalClineRules,
-	getLocalClineRules,
-	refreshClineRulesToggles,
-	ensureLocalClinerulesDirExists,
-} from "@core/context/instructions/user-instructions/cline-rules"
-import {
-	refreshExternalRulesToggles,
-	getLocalWindsurfRules,
-	getLocalCursorRules,
-} from "@core/context/instructions/user-instructions/external-rules"
+import {ensureLocalClinerulesDirExists} from "@core/context/instructions/user-instructions/cline-rules"
+
 import { getGlobalState } from "@core/storage/state"
 import { parseSlashCommands } from "@core/slash-commands"
 import WorkspaceTracker from "@integrations/workspace/WorkspaceTracker"
@@ -201,7 +190,6 @@ export class Task {
 		this.terminalManager.setShellIntegrationTimeout(shellIntegrationTimeout)
 		this.urlContentFetcher = new UrlContentFetcher(context)
 		this.browserSession = new BrowserSession(context, browserSettings)
-		this.contextManager = new ContextManager()
 		this.diffViewProvider = new DiffViewProvider(cwd)
 		this.customInstructions = customInstructions
 		this.autoApprovalSettings = autoApprovalSettings
@@ -218,6 +206,7 @@ export class Task {
 			throw new Error("Either historyItem or task/images must be provided")
 		}
 
+		this.contextManager = new ContextManager(this.contextBaseDir, this.taskId)
 		// Initialize file context tracker
 		this.fileContextTracker = new FileContextTracker(this.contextBaseDir, this.taskId)
 		this.modelContextTracker = new ModelContextTracker(this.contextBaseDir, this.taskId)
@@ -388,10 +377,7 @@ export class Task {
 					await this.overwriteApiConversationHistory(newConversationHistory)
 
 					// update the context history state
-					await this.contextManager.truncateContextHistory(
-						message.ts,
-						await ensureTaskDirectoryExists(this.contextBaseDir, this.taskId),
-					)
+					await this.contextManager.truncateContextHistory(message.ts)
 
 					// aggregate deleted api reqs info so we don't lose costs/tokens
 					const deletedMessages = this.clineMessages.slice(messageIndex + 1)
@@ -2966,9 +2952,7 @@ export class Task {
 									)
 									await this.saveClineMessagesAndUpdateHistory()
 									await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(
-										Date.now(),
-										await ensureTaskDirectoryExists(this.contextBaseDir, this.taskId),
-									)
+										Date.now())
 								}
 								await this.saveCheckpoint()
 								break

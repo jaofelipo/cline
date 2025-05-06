@@ -1,6 +1,6 @@
 import { getContextWindowInfo } from "./context-window-utils"
 import { formatResponse } from "@core/prompts/responses"
-import { GlobalFileNames } from "@core/storage/disk"
+import { ensureTaskDirectoryExists, GlobalFileNames } from "@core/storage/disk"
 import { fileExistsAtPath } from "@utils/fs"
 import * as path from "path"
 import fs from "fs/promises"
@@ -40,7 +40,8 @@ type SerializedContextHistory = Array<
 	]
 >
 
-export class ContextManager {
+export class ContextManager 
+{
 	// mapping from the apiMessages outer index to the inner message index to a list of actual changes, ordered by timestamp
 	// timestamp is required in order to support full checkpointing, where the changes we apply need to be able to be undone when
 	// moving to an earlier conversation history checkpoint - this ordering intuitively allows for binary search on truncation
@@ -51,7 +52,13 @@ export class ContextManager {
 	// the above example would be how we update the first assistant message to indicate we truncated text
 	private contextHistoryUpdates: Map<number, [number, Map<number, ContextUpdate[]>]>
 
-	constructor() {
+	private baseDir:string
+	private taskId:string
+
+	constructor(baseDir:string, taskID:string)
+	{
+		this.baseDir = baseDir
+		this.taskId = taskID
 		this.contextHistoryUpdates = new Map()
 	}
 
@@ -89,7 +96,9 @@ export class ContextManager {
 	/**
 	 * save the context history updates to disk
 	 */
-	private async saveContextHistory(taskDirectory: string) {
+	private async saveContextHistory() 
+	{
+		const taskDirectory = await ensureTaskDirectoryExists(this.baseDir, this.taskId)
 		try {
 			const serializedUpdates: SerializedContextHistory = Array.from(this.contextHistoryUpdates.entries()).map(
 				([messageIndex, [numberValue, innerMap]]) => [messageIndex, [numberValue, Array.from(innerMap.entries())]],
@@ -112,7 +121,6 @@ export class ContextManager {
 		apiConversationHistory: Anthropic.Messages.MessageParam[],
 		api: ApiHandler,
 		conversationHistoryDeletedRange: [number, number] | undefined,
-		taskDirectory: string,
 		previousRequest?: ClineMessage,
 	) {
 		let updatedConversationHistoryDeletedRange = false
@@ -169,7 +177,7 @@ export class ContextManager {
 
 					// if we alter the context history, save the updated version to disk
 					if (anyContextUpdates) {
-						await this.saveContextHistory(taskDirectory)
+						await this.saveContextHistory()
 					}
 				}
 			}
@@ -317,11 +325,11 @@ export class ContextManager {
 	/**
 	 * removes all context history updates that occurred after the specified timestamp and saves to disk
 	 */
-	async truncateContextHistory(timestamp: number, taskDirectory: string): Promise<void> {
+	async truncateContextHistory(timestamp: number): Promise<void> {
 		this.truncateContextHistoryAtTimestamp(this.contextHistoryUpdates, timestamp)
 
 		// save the modified context history to disk
-		await this.saveContextHistory(taskDirectory)
+		await this.saveContextHistory()
 	}
 
 	/**
@@ -392,10 +400,10 @@ export class ContextManager {
 	 * Public function for triggering potentially setting the truncation message
 	 * If the truncation message already exists, does nothing, otherwise adds the message
 	 */
-	async triggerApplyStandardContextTruncationNoticeChange(timestamp: number, taskDirectory: string) {
+	async triggerApplyStandardContextTruncationNoticeChange(timestamp: number) {
 		const updated = this.applyStandardContextTruncationNoticeChange(timestamp)
 		if (updated) {
-			await this.saveContextHistory(taskDirectory)
+			await this.saveContextHistory()
 		}
 	}
 
