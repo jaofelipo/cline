@@ -98,6 +98,7 @@ import { parseSlashCommands } from "@core/slash-commands"
 import WorkspaceTracker from "@integrations/workspace/WorkspaceTracker"
 import { McpHub } from "@services/mcp/McpHub"
 import { isInTestMode } from "../../services/test/TestMode"
+import { AssistantMessageParser } from "../assistant-message/AssistantMessageParser"
 
 export const cwd =
 	vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? path.join(os.homedir(), "Desktop") // may or may not exist but fs checking existence would immediately ask for permission which would be bad UX, need to come up with a better solution
@@ -3656,6 +3657,8 @@ export class Task {
 			this.presentAssistantMessageHasPendingUpdates = false
 			this.didAutomaticallyRetryFailedApiRequest = false
 			await this.diffViewProvider.reset()
+			
+			const parser = new AssistantMessageParser() 
 
 			const stream = this.attemptApiRequest(previousApiReqIndex) // yields only if the first chunk is successful, otherwise will allow the user to retry the request (most likely due to rate limit error, which gets thrown on the first chunk)
 			let assistantMessage = ""
@@ -3692,7 +3695,8 @@ export class Task {
 							assistantMessage += chunk.text
 							// parse raw assistant message into content blocks
 							const prevLength = this.assistantMessageContent.length
-							this.assistantMessageContent = parseAssistantMessage(assistantMessage)
+							this.assistantMessageContent = parser.parseChunk( chunk.text )
+							//this.assistantMessageContent = parseAssistantMessage(assistantMessage)
 							if (this.assistantMessageContent.length > prevLength) {
 								this.userMessageContentReady = false // new content we need to present, reset to false in case previous content set this to true
 							}
