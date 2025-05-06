@@ -3,9 +3,8 @@ import * as path from "path"
 import pdf from "pdf-parse/lib/pdf-parse"
 import mammoth from "mammoth"
 import fs from "fs/promises"
-import { isBinaryFile } from "isbinaryfile"
-import * as chardet from "jschardet"
 import * as iconv from "iconv-lite"
+import { detectEncoding } from "./vs-Integration"
 
 
 
