@@ -99,6 +99,7 @@ import WorkspaceTracker from "@integrations/workspace/WorkspaceTracker"
 import { McpHub } from "@services/mcp/McpHub"
 import { isInTestMode } from "../../services/test/TestMode"
 import { AssistantMessageParser } from "../assistant-message/AssistantMessageParser"
+import { ApiClient } from "./ApiClient"
 
 
 export const cwd =
@@ -110,7 +111,7 @@ type UserContent = Array<Anthropic.ContentBlockParam>
 export class Task {
 	// dependencies
 	private context: vscode.ExtensionContext
-	private mcpHub: McpHub
+	public mcpHub: McpHub
 	private workspaceTracker: WorkspaceTracker
 	private updateTaskHistory: (historyItem: HistoryItem) => Promise<HistoryItem[]>
 	private postStateToWebview: () => Promise<void>
@@ -131,7 +132,7 @@ export class Task {
 	chatSettings: ChatSettings
 	apiConversationHistory: Anthropic.MessageParam[] = []
 	clineMessages: ClineMessage[] = []
-	private clineIgnoreController: ClineIgnoreController
+	public clineIgnoreController: ClineIgnoreController
 	private askResponse?: ClineAskResponse
 	private askResponseText?: string
 	private askResponseImages?: string[]
@@ -165,7 +166,9 @@ export class Task {
 	private didRejectTool = false
 	private didAlreadyUseTool = false
 	private didCompleteReadingStream = false
-	private didAutomaticallyRetryFailedApiRequest = false
+	public didAutomaticallyRetryFailedApiRequest = false
+
+	public apiClient:ApiClient = new ApiClient()
 
 	constructor(
 		context: vscode.ExtensionContext,
@@ -250,7 +253,7 @@ export class Task {
 
 	// While a task is ref'd by a controller, it will always have access to the extension context
 	// This error is thrown if the controller derefs the task after e.g., aborting the task
-	private getContext(): vscode.ExtensionContext {
+	public getContext(): vscode.ExtensionContext {
 		const context = this.context
 		if (!context) {
 			throw new Error("Unable to access extension context")
@@ -283,7 +286,7 @@ export class Task {
 		await this.saveClineMessagesAndUpdateHistory()
 	}
 
-	private async saveClineMessagesAndUpdateHistory() {
+	public async saveClineMessagesAndUpdateHistory() {
 		try {
 			await saveClineMessages(this.getContext(), this.taskId, this.clineMessages)
 
@@ -1421,178 +1424,14 @@ export class Task {
 		}
 	}
 
-	private formatErrorWithStatusCode(error: any): string {
-		const statusCode = error.status || error.statusCode || (error.response && error.response.status)
+	public formatErrorWithStatusCode(error: any): string 
+	{
+		const statusCode = error.status || error.statusCode || (error.response && error.response.status) || ''
 		const message = error.message ?? JSON.stringify(serializeError(error), null, 2)
-
-		// Only prepend the statusCode if it's not already part of the message
-		return statusCode && !message.includes(statusCode.toString()) ? `${statusCode} - ${message}` : message
+		return statusCode && !message.includes(statusCode.toString()) ? `${statusCode} - ${message}` : message //add statusCode if it's not part of the message
 	}
 
-	async *attemptApiRequest(previousApiReqIndex: number): ApiStream {
-		// Wait for MCP servers to be connected before generating system prompt
-		await pWaitFor(() => this.mcpHub.isConnecting !== true, { timeout: 10_000 }).catch(() => {
-			console.error("MCP servers failed to connect in time")
-		})
-
-		const disableBrowserTool = vscode.workspace.getConfiguration("cline").get<boolean>("disableBrowserTool") ?? false
-		// cline browser tool uses image recognition for navigation (requires model image support).
-		const modelSupportsBrowserUse = this.api.getModel().info.supportsImages ?? false
-
-		const supportsBrowserUse = modelSupportsBrowserUse && !disableBrowserTool // only enable browser use if the model supports it and the user hasn't disabled it
-
-		let systemPrompt = await SYSTEM_PROMPT(cwd, supportsBrowserUse, this.mcpHub, this.browserSettings)
-
-		let settingsCustomInstructions = this.customInstructions?.trim()
-		const preferredLanguage = getLanguageKey(
-			vscode.workspace.getConfiguration("cline").get<LanguageDisplay>("preferredLanguage"),
-		)
-		const preferredLanguageInstructions =
-			preferredLanguage && preferredLanguage !== DEFAULT_LANGUAGE_SETTINGS
-				? `# Preferred Language\n\nSpeak in ${preferredLanguage}.`
-				: ""
-
-		const { globalToggles, localToggles } = await refreshClineRulesToggles(this.getContext(), cwd)
-		const { windsurfLocalToggles, cursorLocalToggles } = await refreshExternalRulesToggles(this.getContext(), cwd)
-
-		const globalClineRulesFilePath = await ensureRulesDirectoryExists()
-		const globalClineRulesFileInstructions = await getGlobalClineRules(globalClineRulesFilePath, globalToggles)
-
-		const localClineRulesFileInstructions = await getLocalClineRules(cwd, localToggles)
-		const [localCursorRulesFileInstructions, localCursorRulesDirInstructions] = await getLocalCursorRules(
-			cwd,
-			cursorLocalToggles,
-		)
-		const localWindsurfRulesFileInstructions = await getLocalWindsurfRules(cwd, windsurfLocalToggles)
-
-		const clineIgnoreContent = this.clineIgnoreController.clineIgnoreContent
-		let clineIgnoreInstructions: string | undefined
-		if (clineIgnoreContent) {
-			clineIgnoreInstructions = formatResponse.clineIgnoreInstructions(clineIgnoreContent)
-		}
-
-		if (
-			settingsCustomInstructions ||
-			globalClineRulesFileInstructions ||
-			localClineRulesFileInstructions ||
-			localCursorRulesFileInstructions ||
-			localCursorRulesDirInstructions ||
-			localWindsurfRulesFileInstructions ||
-			clineIgnoreInstructions ||
-			preferredLanguageInstructions
-		) {
-			// altering the system prompt mid-task will break the prompt cache, but in the grand scheme this will not change often so it's better to not pollute user messages with it the way we have to with <potentially relevant details>
-			const userInstructions = addUserInstructions(
-				settingsCustomInstructions,
-				globalClineRulesFileInstructions,
-				localClineRulesFileInstructions,
-				localCursorRulesFileInstructions,
-				localCursorRulesDirInstructions,
-				localWindsurfRulesFileInstructions,
-				clineIgnoreInstructions,
-				preferredLanguageInstructions,
-			)
-			systemPrompt += userInstructions
-		}
-		const contextManagementMetadata = await this.contextManager.getNewContextMessagesAndMetadata(
-			this.apiConversationHistory,
-			this.clineMessages,
-			this.api,
-			this.conversationHistoryDeletedRange,
-			previousApiReqIndex,
-			await ensureTaskDirectoryExists(this.getContext(), this.taskId),
-		)
-
-		if (contextManagementMetadata.updatedConversationHistoryDeletedRange) {
-			this.conversationHistoryDeletedRange = contextManagementMetadata.conversationHistoryDeletedRange
-			await this.saveClineMessagesAndUpdateHistory() // saves task history item which we use to keep track of conversation history deleted range
-		}
-
-		let stream = this.api.createMessage(systemPrompt, contextManagementMetadata.truncatedConversationHistory)
-
-		const iterator = stream[Symbol.asyncIterator]()
-
-		try {
-			// awaiting first chunk to see if it will throw an error
-			this.isWaitingForFirstChunk = true
-			const firstChunk = await iterator.next()
-			yield firstChunk.value
-			this.isWaitingForFirstChunk = false
-		} catch (error) {
-			const isOpenRouter = this.api instanceof OpenRouterHandler || this.api instanceof ClineHandler
-			const isAnthropic = this.api instanceof AnthropicHandler
-			const isOpenRouterContextWindowError = checkIsOpenRouterContextWindowError(error) && isOpenRouter
-			const isAnthropicContextWindowError = checkIsAnthropicContextWindowError(error) && isAnthropic
-
-			if (isAnthropic && isAnthropicContextWindowError && !this.didAutomaticallyRetryFailedApiRequest) {
-				this.conversationHistoryDeletedRange = this.contextManager.getNextTruncationRange(
-					this.apiConversationHistory,
-					this.conversationHistoryDeletedRange,
-					"quarter", // Force aggressive truncation
-				)
-				await this.saveClineMessagesAndUpdateHistory()
-				await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(
-					Date.now(),
-					await ensureTaskDirectoryExists(this.getContext(), this.taskId),
-				)
-
-				this.didAutomaticallyRetryFailedApiRequest = true
-			} else if (isOpenRouter && !this.didAutomaticallyRetryFailedApiRequest) {
-				if (isOpenRouterContextWindowError) {
-					this.conversationHistoryDeletedRange = this.contextManager.getNextTruncationRange(
-						this.apiConversationHistory,
-						this.conversationHistoryDeletedRange,
-						"quarter", // Force aggressive truncation
-					)
-					await this.saveClineMessagesAndUpdateHistory()
-					await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(
-						Date.now(),
-						await ensureTaskDirectoryExists(this.getContext(), this.taskId),
-					)
-				}
-
-				console.log("first chunk failed, waiting 1 second before retrying")
-				await delay(1000)
-				this.didAutomaticallyRetryFailedApiRequest = true
-			} else {
-				// request failed after retrying automatically once, ask user if they want to retry again
-				// note that this api_req_failed ask is unique in that we only present this option if the api hasn't streamed any content yet (ie it fails on the first chunk due), as it would allow them to hit a retry button. However if the api failed mid-stream, it could be in any arbitrary state where some tools may have executed, so that error is handled differently and requires cancelling the task entirely.
-
-				if (isOpenRouterContextWindowError || isAnthropicContextWindowError) {
-					const truncatedConversationHistory = this.contextManager.getTruncatedMessages(
-						this.apiConversationHistory,
-						this.conversationHistoryDeletedRange,
-					)
-
-					// If the conversation has more than 3 messages, we can truncate again. If not, then the conversation is bricked.
-					// ToDo: Allow the user to change their input if this is the case.
-					if (truncatedConversationHistory.length > 3) {
-						error = new Error("Context window exceeded. Click retry to truncate the conversation and try again.")
-						this.didAutomaticallyRetryFailedApiRequest = false
-					}
-				}
-
-				const errorMessage = this.formatErrorWithStatusCode(error)
-
-				const { response } = await this.ask("api_req_failed", errorMessage)
-
-				if (response !== "yesButtonClicked") {
-					// this will never happen since if noButtonClicked, we will clear current task, aborting this instance
-					throw new Error("API request failed")
-				}
-
-				await this.say("api_req_retried")
-			}
-			// delegate generator output from the recursive call
-			yield* this.attemptApiRequest(previousApiReqIndex)
-			return
-		}
-
-		// no error, so we can continue to yield all remaining chunks
-		// (needs to be placed outside of try/catch since it we want caller to handle errors not with api_req_failed as that is reserved for first chunk failures only)
-		// this delegates to another generator or iterable object. In this case, it's saying "yield all remaining values from this iterator". This effectively passes along all subsequent chunks from the original stream.
-		yield* iterator
-	}
+	
 
 	async presentAssistantMessage() {
 		if (this.abort) {
@@ -3661,7 +3500,7 @@ export class Task {
 			
 			const parser = new AssistantMessageParser() 
 
-			const stream = this.attemptApiRequest(previousApiReqIndex) // yields only if the first chunk is successful, otherwise will allow the user to retry the request (most likely due to rate limit error, which gets thrown on the first chunk)
+			const stream = this.apiClient.attemptApiRequest(this, previousApiReqIndex) // yields only if the first chunk is successful, otherwise will allow the user to retry the request (most likely due to rate limit error, which gets thrown on the first chunk)
 			let assistantMessage = ""
 			let reasoningMessage = ""
 			this.isStreaming = true

@@ -1,0 +1,202 @@
+import { ApiStream } from "@/api/transform/stream";
+import pWaitFor from "p-wait-for";
+import * as vscode from "vscode"
+import { addUserInstructions, SYSTEM_PROMPT } from "../prompts/system";
+import { DEFAULT_LANGUAGE_SETTINGS, getLanguageKey, LanguageDisplay } from "@/shared/Languages";
+import { getGlobalClineRules, getLocalClineRules, refreshClineRulesToggles } from "../context/instructions/user-instructions/cline-rules";
+import { getLocalCursorRules, getLocalWindsurfRules, refreshExternalRulesToggles } from "../context/instructions/user-instructions/external-rules";
+import { ensureRulesDirectoryExists, ensureTaskDirectoryExists } from "../storage/disk";
+import { formatResponse } from "../prompts/responses";
+import { cwd, Task } from ".";
+import { OpenRouterHandler } from "@/api/providers/openrouter";
+import { ClineHandler } from "@/api/providers/cline";
+import { AnthropicHandler } from "@/api/providers/anthropic";
+import { checkIsAnthropicContextWindowError, checkIsOpenRouterContextWindowError } from "../context/context-management/context-error-handling";
+import { setTimeout as delay } from "node:timers/promises"
+
+export class ApiClient 
+{
+   constructor() 
+    {
+    }
+
+    async *attemptApiRequest(task:Task, previousApiReqIndex: number): ApiStream 
+    {
+		// Wait for MCP servers to be connected before generating system prompt
+		await pWaitFor(() => task.mcpHub.isConnecting !== true, { timeout: 10_000 }).catch(() => {
+			console.error("MCP servers failed to connect in time")
+		})
+
+		const disableBrowserTool = vscode.workspace.getConfiguration("cline").get<boolean>("disableBrowserTool") ?? false
+		// cline browser tool uses image recognition for navigation (requires model image support).
+		const modelSupportsBrowserUse = task.api.getModel().info.supportsImages ?? false
+
+		const supportsBrowserUse = modelSupportsBrowserUse && !disableBrowserTool // only enable browser use if the model supports it and the user hasn't disabled it
+
+		let systemPrompt = await SYSTEM_PROMPT(cwd, supportsBrowserUse, task.mcpHub, task.browserSettings)
+
+		let settingsCustomInstructions = task.customInstructions?.trim()
+		const preferredLanguage = getLanguageKey(
+			vscode.workspace.getConfiguration("cline").get<LanguageDisplay>("preferredLanguage"),
+		)
+		const preferredLanguageInstructions =
+			preferredLanguage && preferredLanguage !== DEFAULT_LANGUAGE_SETTINGS
+				? `# Preferred Language\n\nSpeak in ${preferredLanguage}.`
+				: ""
+
+		const { globalToggles, localToggles } = await refreshClineRulesToggles(task.getContext(), cwd)
+		const { windsurfLocalToggles, cursorLocalToggles } = await refreshExternalRulesToggles(task.getContext(), cwd)
+
+		const globalClineRulesFilePath = await ensureRulesDirectoryExists()
+		const globalClineRulesFileInstructions = await getGlobalClineRules(globalClineRulesFilePath, globalToggles)
+
+		const localClineRulesFileInstructions = await getLocalClineRules(cwd, localToggles)
+		const [localCursorRulesFileInstructions, localCursorRulesDirInstructions] = await getLocalCursorRules(
+			cwd,
+			cursorLocalToggles,
+		)
+		const localWindsurfRulesFileInstructions = await getLocalWindsurfRules(cwd, windsurfLocalToggles)
+
+		const clineIgnoreContent = task.clineIgnoreController.clineIgnoreContent
+		let clineIgnoreInstructions: string | undefined
+		if (clineIgnoreContent) {
+			clineIgnoreInstructions = formatResponse.clineIgnoreInstructions(clineIgnoreContent)
+		}
+
+		if (
+			settingsCustomInstructions ||
+			globalClineRulesFileInstructions ||
+			localClineRulesFileInstructions ||
+			localCursorRulesFileInstructions ||
+			localCursorRulesDirInstructions ||
+			localWindsurfRulesFileInstructions ||
+			clineIgnoreInstructions ||
+			preferredLanguageInstructions
+		) {
+			// altering the system prompt mid-task will break the prompt cache, but in the grand scheme this will not change often so it's better to not pollute user messages with it the way we have to with <potentially relevant details>
+			const userInstructions = addUserInstructions(
+				settingsCustomInstructions,
+				globalClineRulesFileInstructions,
+				localClineRulesFileInstructions,
+				localCursorRulesFileInstructions,
+				localCursorRulesDirInstructions,
+				localWindsurfRulesFileInstructions,
+				clineIgnoreInstructions,
+				preferredLanguageInstructions,
+			)
+			systemPrompt += userInstructions
+		}
+		const contextManagementMetadata = await task.contextManager.getNewContextMessagesAndMetadata(
+			task.apiConversationHistory,
+			task.clineMessages,
+			task.api,
+			task.conversationHistoryDeletedRange,
+			previousApiReqIndex,
+			await ensureTaskDirectoryExists(task.getContext(), task.taskId),
+		)
+
+		if (contextManagementMetadata.updatedConversationHistoryDeletedRange) {
+			task.conversationHistoryDeletedRange = contextManagementMetadata.conversationHistoryDeletedRange
+			await task.saveClineMessagesAndUpdateHistory() // saves task history item which we use to keep track of conversation history deleted range
+		}
+
+		let stream = task.api.createMessage(systemPrompt, contextManagementMetadata.truncatedConversationHistory)
+
+		const iterator = stream[Symbol.asyncIterator]()
+
+		try {
+			// awaiting first chunk to see if it will throw an error
+			task.isWaitingForFirstChunk = true
+			const firstChunk = await iterator.next()
+			yield firstChunk.value
+			task.isWaitingForFirstChunk = false
+		} catch (error) {
+			const isOpenRouter = task.api instanceof OpenRouterHandler || task.api instanceof ClineHandler
+			const isAnthropic = task.api instanceof AnthropicHandler
+			const isOpenRouterContextWindowError = checkIsOpenRouterContextWindowError(error) && isOpenRouter
+			const isAnthropicContextWindowError = checkIsAnthropicContextWindowError(error) && isAnthropic
+
+			if (isAnthropic && isAnthropicContextWindowError && !task.didAutomaticallyRetryFailedApiRequest) {
+				task.conversationHistoryDeletedRange = task.contextManager.getNextTruncationRange(
+					task.apiConversationHistory,
+					task.conversationHistoryDeletedRange,
+					"quarter", // Force aggressive truncation
+				)
+				await task.saveClineMessagesAndUpdateHistory()
+				await task.contextManager.triggerApplyStandardContextTruncationNoticeChange(
+					Date.now(),
+					await ensureTaskDirectoryExists(task.getContext(), task.taskId),
+				)
+
+				task.didAutomaticallyRetryFailedApiRequest = true
+			} else if (isOpenRouter && !task.didAutomaticallyRetryFailedApiRequest) {
+				if (isOpenRouterContextWindowError) {
+					task.conversationHistoryDeletedRange = task.contextManager.getNextTruncationRange(
+						task.apiConversationHistory,
+						task.conversationHistoryDeletedRange,
+						"quarter", // Force aggressive truncation
+					)
+					await task.saveClineMessagesAndUpdateHistory()
+					await task.contextManager.triggerApplyStandardContextTruncationNoticeChange(
+						Date.now(),
+						await ensureTaskDirectoryExists(task.getContext(), task.taskId),
+					)
+				}
+
+				console.log("first chunk failed, waiting 1 second before retrying")
+				await delay(1000)
+				task.didAutomaticallyRetryFailedApiRequest = true
+			} else {
+				// request failed after retrying automatically once, ask user if they want to retry again
+				// note that this api_req_failed ask is unique in that we only present this option if the api hasn't streamed any content yet (ie it fails on the first chunk due), as it would allow them to hit a retry button. However if the api failed mid-stream, it could be in any arbitrary state where some tools may have executed, so that error is handled differently and requires cancelling the task entirely.
+
+				if (isOpenRouterContextWindowError || isAnthropicContextWindowError) {
+					const truncatedConversationHistory = task.contextManager.getTruncatedMessages(
+						task.apiConversationHistory,
+						task.conversationHistoryDeletedRange,
+					)
+
+					// If the conversation has more than 3 messages, we can truncate again. If not, then the conversation is bricked.
+					// ToDo: Allow the user to change their input if this is the case.
+					if (truncatedConversationHistory.length > 3) {
+						error = new Error("Context window exceeded. Click retry to truncate the conversation and try again.")
+						task.didAutomaticallyRetryFailedApiRequest = false
+					}
+				}
+
+				const errorMessage = task.formatErrorWithStatusCode(error)
+
+				const { response } = await task.ask("api_req_failed", errorMessage)
+
+				if (response !== "yesButtonClicked") {
+					// this will never happen since if noButtonClicked, we will clear current task, aborting this instance
+					throw new Error("API request failed")
+				}
+
+				await task.say("api_req_retried")
+			}
+			// delegate generator output from the recursive call
+			yield* this.attemptApiRequest(task, previousApiReqIndex)
+			return
+		}
+
+		// no error, so we can continue to yield all remaining chunks
+		// (needs to be placed outside of try/catch since it we want caller to handle errors not with api_req_failed as that is reserved for first chunk failures only)
+		// this delegates to another generator or iterable object. In this case, it's saying "yield all remaining values from this iterator". This effectively passes along all subsequent chunks from the original stream.
+		yield* iterator
+	}
+
+
+    private async *streamWithDone(iterator: AsyncIterableIterator<any>, endMarker:any) 
+    {
+        for await (const { value, done } of iterator) 
+        {
+            if (done) {
+                yield endMarker 
+                return
+            }
+            yield value
+        }
+    }
+
+}
