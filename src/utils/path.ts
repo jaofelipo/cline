@@ -1,6 +1,6 @@
+import * as vscode from "vscode"
 import * as path from "path"
 import os from "os"
-import * as vscode from "vscode"
 
 /*
 The Node.js 'path' module resolves and normalizes paths differently depending on the platform:
@@ -49,55 +49,85 @@ String.prototype.toPosix = function (this: string): string {
 }
 
 // Safe path comparison that works across different platforms
-export function arePathsEqual(path1?: string, path2?: string): boolean {
-	if (!path1 && !path2) {
+export function arePathsEqual(path1?: string, path2?: string): boolean 
+{
+	if (!path1 && !path2) 
 		return true
-	}
-	if (!path1 || !path2) {
+	
+	if (!path1 || !path2) 
 		return false
-	}
 
 	path1 = normalizePath(path1)
 	path2 = normalizePath(path2)
 
-	if (process.platform === "win32") {
-		return path1.toLowerCase() === path2.toLowerCase()
-	}
-	return path1 === path2
+	return (process.platform === "win32") ? path1.toLowerCase() === path2.toLowerCase() : path1 === path2
 }
 
-function normalizePath(p: string): string {
+function normalizePath(p:string):string 
+{
 	// normalize resolve ./.. segments, removes duplicate slashes, and standardizes path separators
 	let normalized = path.normalize(p)
 	// however it doesn't remove trailing slashes
 	// remove trailing slash, except for root paths
-	if (normalized.length > 1 && (normalized.endsWith("/") || normalized.endsWith("\\"))) {
-		normalized = normalized.slice(0, -1)
-	}
-	return normalized
+	return (normalized.length > 1 && (normalized.endsWith("/") || normalized.endsWith("\\"))) ? normalized.slice(0, -1) : normalized
 }
 
-export function getReadablePath(cwd: string, relPath?: string): string {
+export function getReadablePath(cwd: string, relPath?: string, debug:boolean=false): string {
+	
 	relPath = relPath || ""
 	// path.resolve is flexible in that it will resolve relative paths like '../../' to the cwd and even ignore the cwd if the relPath is actually an absolute path
 	const absolutePath = path.resolve(cwd, relPath)
-	if (arePathsEqual(cwd, path.join(os.homedir(), "Desktop"))) {
+	if(debug)
+	{
+		console.log('absolutePath:', absolutePath)
+		console.log('home dir:', path.join(os.homedir(), "Desktop"))
+		console.log('cwd:', cwd)
+		console.log('equals: ', arePathsEqual(cwd, path.join(os.homedir(), "Desktop")))
+		console.log('normalize(absolutePath):', path.normalize(absolutePath))
+		console.log('normalize(cwd):', path.normalize(cwd))
+		console.log('equals2: ', arePathsEqual(path.normalize(absolutePath), path.normalize(cwd)))
+		console.log('include cwd:', absolutePath.includes(cwd))
+		console.log('-------------------------------------------')
+
+		console.log('TRUE -> :', path.relative(cwd, absolutePath).toPosix() )
+
+		console.log('FALSE -> :', absolutePath.toPosix())
+	}
+	if (arePathsEqual(cwd, path.join(os.homedir(), "Desktop"))) 
+	{
 		// User opened vscode without a workspace, so cwd is the Desktop. Show the full absolute path to keep the user aware of where files are being created
 		return absolutePath.toPosix()
 	}
-	if (arePathsEqual(path.normalize(absolutePath), path.normalize(cwd))) {
+	if (arePathsEqual(path.normalize(absolutePath), path.normalize(path.resolve(cwd)))) 
+	{
 		return path.basename(absolutePath).toPosix()
-	} else {
-		// show the relative path to the cwd
-		const normalizedRelPath = path.relative(cwd, absolutePath)
-		if (absolutePath.includes(cwd)) {
-			return normalizedRelPath.toPosix()
-		} else {
-			// we are outside the cwd, so show the absolute path (useful for when cline passes in '../../' for example)
-			return absolutePath.toPosix()
-		}
+	} 
+	else // show the relative path to the cwd 
+	{
+		const relativePath = path.relative(cwd, absolutePath);
+		if (relativePath !== '' && !relativePath.startsWith('..')) 
+            return relativePath.toPosix();
 	}
+	return absolutePath.toPosix()   // we are outside the cwd, so show the absolute path (useful for when cline passes in '../../' for example)
 }
+
+export function getExtension(filePath:string):string
+{
+	return path.extname(filePath).toLowerCase()
+}
+
+
+export function getMimeType(filePath:string):string
+{
+	const mimeTypes:Record<string, string> = { 
+		".png":  "image/png", 
+		".jpg":  "image/jpeg", 
+		".jpeg": "image/jpeg", 
+		".webp": "image/webp" }
+
+	return mimeTypes[path.extname(filePath).toLowerCase()]
+}
+
 
 export const getWorkspacePath = (defaultCwdPath = "") => {
 	const cwdPath = vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) || defaultCwdPath

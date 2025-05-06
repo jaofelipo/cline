@@ -1,6 +1,6 @@
 import { cwd } from "@/core/task";
 import { ToolParamName, ToolUse } from "../core/assistant-message";
-import { ClineAskQuestion, ClineAskUseMcpServer, ClinePlanModeResponse, ClineSayTool } from "../shared/ExtensionMessage";
+import { BrowserAction, ClineAskQuestion, ClineAskUseMcpServer, ClinePlanModeResponse, ClineSayBrowserAction, ClineSayTool } from "../shared/ExtensionMessage";
 import { getReadablePath, isLocatedInWorkspace } from "./path";
 import { parsePartialArrayString } from "@/shared/array";
 
@@ -9,15 +9,20 @@ export function toJSON({name, params, partial}:ToolUse, content?:string, overrid
 	switch(name)
 	{
 		case 'browser_action':
-			return params.url ?? ''
+			if (params.action === 'launch')
+				return StringUtils.removeTag('url', params.url, partial)
+			else
+				return JSON.stringify({
+					action: params.action as BrowserAction,
+					coordinate: StringUtils.removeTag( "coordinate", params.coordinate, partial),
+					text: StringUtils.removeTag( "text", params.text, partial)})
 		case 'condense':
 			return StringUtils.removeTag("context", params.context, partial)
 		case 'plan_mode_respond':
 			return JSON.stringify({
 				response: StringUtils.removeTag("response", params.response, partial),
 				options: parsePartialArrayString(StringUtils.removeTag("options", params.options, partial)),
-				selected: content
-				} satisfies ClinePlanModeResponse)
+				selected: content})
 		case 'new_task':
 			return StringUtils.removeTag("context", params.context, partial)
 		case "search_files":
@@ -27,15 +32,13 @@ export function toJSON({name, params, partial}:ToolUse, content?:string, overrid
 				regex: StringUtils.removeTag("regex", params.regex, partial),
 				filePattern: StringUtils.removeTag("file_pattern", params.file_pattern, partial),
 				content: content ?? '',
-				operationIsLocatedInWorkspace: isLocatedInWorkspace(params.path),
-			} satisfies ClineSayTool)
+				operationIsLocatedInWorkspace: isLocatedInWorkspace(params.path) })
 		case "use_mcp_tool":
 			return JSON.stringify({
 				type: "use_mcp_tool",
 				serverName: (content === undefined) ? StringUtils.removeTag("server_name", params.server_name) : params.server_name ?? "",
 				toolName: (content === undefined) ? StringUtils.removeTag("tool_name", params.tool_name) : params.tool_name,
-				arguments: (content === undefined) ? StringUtils.removeTag("arguments", params.arguments) : params.arguments
-			} satisfies ClineAskUseMcpServer)
+				arguments: (content === undefined) ? StringUtils.removeTag("arguments", params.arguments) : params.arguments})
 		case "list_code_definition_names"://list_code_definition_names
 			return toolToJSON('listCodeDefinitionNames', content ?? '', cwd, params.path, partial)
 		case 'list_files':
@@ -59,6 +62,7 @@ export function toJSON({name, params, partial}:ToolUse, content?:string, overrid
 			} satisfies ClineAskQuestion);
 		case 'execute_command':
 			return StringUtils.removeTag("command", params.command)
+	
 	}
 	return ''
 }
@@ -73,6 +77,7 @@ function toolToJSON(tool: "editedExistingFile" | "newFileCreated" | "readFile"  
 		operationIsLocatedInWorkspace: isLocatedInWorkspace(path)
 	} satisfies ClineSayTool)
 }
+
 
 export function parseJSON(text?:string)
 {

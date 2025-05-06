@@ -88,22 +88,17 @@ export async function searchCommits(query: string, cwd: string): Promise<GitComm
 	}
 }
 
-export async function getCommitInfo(hash: string, cwd: string): Promise<string> {
-	try {
-		const isInstalled = await checkGitInstalled()
-		if (!isInstalled) {
+export async function getCommitInfo(hash: string, cwd: string): Promise<string> 
+{
+	try 
+	{
+		if (!await checkGitInstalled()) 
 			return "Git is not installed"
-		}
 
-		const isRepo = await checkGitRepo(cwd)
-		if (!isRepo) {
+		if (!await checkGitRepo(cwd))
 			return "Not a git repository"
-		}
 
-		// Get commit info, stats, and diff separately
-		const { stdout: info } = await execAsync(`git show --format="%H%n%h%n%s%n%an%n%ad%n%b" --no-patch ${hash}`, {
-			cwd,
-		})
+		const { stdout: info } = await execAsync(`git show --format="%H%n%h%n%s%n%an%n%ad%n%b" --no-patch ${hash}`, {cwd}) // Get commit info, stats, and diff separately
 		const [fullHash, shortHash, subject, author, date, body] = info.trim().split("\n")
 
 		const { stdout: stats } = await execAsync(`git show --stat --format="" ${hash}`, { cwd })
@@ -122,56 +117,57 @@ export async function getCommitInfo(hash: string, cwd: string): Promise<string> 
 		].join("\n")
 
 		const output = summary + "\n\n" + diff.trim()
-		return truncateOutput(output)
-	} catch (error) {
+		return truncateOutput(output, GIT_OUTPUT_LINE_LIMIT)
+	} 
+	catch (error) 
+	{
 		console.error("Error getting commit info:", error)
 		return `Failed to get commit info: ${error instanceof Error ? error.message : String(error)}`
 	}
 }
 
-export async function getWorkingState(cwd: string): Promise<string> {
-	try {
-		const isInstalled = await checkGitInstalled()
-		if (!isInstalled) {
+export async function getWorkingState(cwd: string): Promise<string> 
+{
+	try 
+	{
+		if (!await checkGitInstalled()) 
 			return "Git is not installed"
-		}
 
-		const isRepo = await checkGitRepo(cwd)
-		if (!isRepo) {
+		if (!await checkGitRepo(cwd)) 
 			return "Not a git repository"
-		}
 
-		// Get status of working directory
-		const { stdout: status } = await execAsync("git status --short", { cwd })
-		if (!status.trim()) {
+		const { stdout: status } = await execAsync("git status --short", { cwd }) // Get status of working directory
+		if (!status.trim()) 
 			return "No changes in working directory"
-		}
-
-		// Get all changes (both staged and unstaged) compared to HEAD
-		const { stdout: diff } = await execAsync("git diff HEAD", { cwd })
+	
+		const { stdout: diff } = await execAsync("git diff HEAD", { cwd }) // Get all changes (both staged and unstaged) compared to HEAD
 		const output = `Working directory changes:\n\n${status}\n\n${diff}`.trim()
-		return truncateOutput(output)
-	} catch (error) {
+		
+		return truncateOutput(output, GIT_OUTPUT_LINE_LIMIT)
+	}
+	catch (error) 
+	{
 		console.error("Error getting working state:", error)
-		return `Failed to get working state: ${error instanceof Error ? error.message : String(error)}`
+		return `Error fetching working state: ${error instanceof Error ? error.message : String(error)}`
 	}
 }
 
-function truncateOutput(content: string): string {
-	if (!GIT_OUTPUT_LINE_LIMIT) {
-		return content
-	}
 
-	const lines = content.split("\n")
-	if (lines.length <= GIT_OUTPUT_LINE_LIMIT) {
-		return content
+function truncateOutput(content: string, outputLimit?:number): string 
+{
+	if (outputLimit)
+	{
+		const lines = content.split("\n")
+		if (lines.length > outputLimit) 
+		{
+			const beforeLimit = Math.floor(outputLimit * 0.2) // 20% of lines before
+			const afterLimit = outputLimit - beforeLimit // remaining 80% after
+			return [
+				...lines.slice(0, beforeLimit),
+				`\n[...${lines.length - outputLimit} lines omitted...]\n`,
+				...lines.slice(-afterLimit),
+			].join("\n")
+		}
 	}
-
-	const beforeLimit = Math.floor(GIT_OUTPUT_LINE_LIMIT * 0.2) // 20% of lines before
-	const afterLimit = GIT_OUTPUT_LINE_LIMIT - beforeLimit // remaining 80% after
-	return [
-		...lines.slice(0, beforeLimit),
-		`\n[...${lines.length - GIT_OUTPUT_LINE_LIMIT} lines omitted...]\n`,
-		...lines.slice(-afterLimit),
-	].join("\n")
+	return content
 }

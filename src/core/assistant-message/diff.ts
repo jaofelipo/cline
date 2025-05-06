@@ -67,6 +67,7 @@ const map: Record<string, (diffContent: string, content: string, isFinal: boolea
 
 export async function constructNewFileContent(diffContent: string, content: string, isFinal: boolean, version: "v1" | "v2" = "v2"): Promise<string> 
 {
+	diffContent = StringUtils.fixModelDiffContent(diffContent)
 	const constructor =  map[version]
 	if (!constructor) 
 		throw new Error(`Invalid version '${version}' for file content constructor`)

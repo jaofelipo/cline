@@ -16,6 +16,19 @@ class StringUtils
         return newContent.endsWith(end) ? newContent.split("\n").slice(0, -1).join("\n").trim() : newContent;
     }
 
+    /**
+     * Cleans text by converting HTML entities to their corresponding characters
+     * removes Unicode replacement characters (�) and ``` ´´´ at begin and end
+     * 
+     * @param text - Text to be sanitized
+     * @returns Cleaned text without HTML entities and replacement characters
+     */
+    static fixModelContent(text: string): string 
+    {
+        text = StringUtils.removeStartAndEnd(text)        
+        return StringUtils.convertHtmlEntitiesToText(text).replace(/\uFFFD/g, "")
+    }
+    
     static htmlEntitiesMap = {
         '&gt;': '>',
         '&lt;': '<',
@@ -38,9 +51,9 @@ class StringUtils
      * @param text - Text to be sanitized
      * @returns Cleaned text without HTML entities and replacement characters
      */
-    static fixModelContent(text: string): string 
+    static fixModelDiffContent(text: string): string 
     {
-        return this.convertHtmlEntitiesToText(text).replace(/\uFFFD/g, "")
+        return StringUtils.convertHtmlEntitiesToText(text).replace(/\uFFFD/g, "")
     }
 
     static regexTagCache = new Map<string, RegExp>();
