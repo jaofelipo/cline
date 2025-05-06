@@ -20,7 +20,7 @@
 		},
 		{
 			"label": "watch",
-			"dependsOn": ["npm: protos", "npm: build:webview", "npm: dev:webview", "npm: watch:tsc", "npm: watch:esbuild"],
+			"dependsOn": ["npm: build:webview", "npm: dev:webview", "npm: watch:tsc", "npm: watch:esbuild"],
 			"presentation": {
 				"reveal": "always"
 			},
@@ -32,7 +32,6 @@
 		{
 			"label": "watch:test",
 			"dependsOn": [
-				"npm: protos",
 				"npm: build:webview:test",
 				"npm: dev:webview",
 				"npm: watch:tsc",
@@ -50,7 +49,7 @@
 			"problemMatcher": [],
 			"isBackground": true,
 			"label": "npm: build:webview",
-			"dependsOn": ["npm: protos"],
+			"dependsOn": [],
 			"presentation": {
 				"group": "watch",
 				"reveal": "always"
@@ -68,7 +67,7 @@
 			"problemMatcher": [],
 			"isBackground": true,
 			"label": "npm: build:webview:test",
-			"dependsOn": ["npm: protos"],
+			"dependsOn": [],
 			"presentation": {
 				"group": "watch",
 				"reveal": "always"
@@ -103,7 +102,7 @@
 			],
 			"isBackground": true,
 			"label": "npm: dev:webview",
-			"dependsOn": ["npm: protos"],
+			"dependsOn": [],
 			"presentation": {
 				"group": "watch",
 				"reveal": "always"
@@ -121,7 +120,7 @@
 			"problemMatcher": "$esbuild-watch",
 			"isBackground": true,
 			"label": "npm: watch:esbuild",
-			"dependsOn": ["npm: protos"],
+			"dependsOn": [],
 			"presentation": {
 				"group": "watch",
 				"reveal": "always"
@@ -139,7 +138,7 @@
 			"problemMatcher": "$esbuild-watch",
 			"isBackground": true,
 			"label": "npm: watch:esbuild:test",
-			"dependsOn": ["npm: protos"],
+			"dependsOn": [],
 			"presentation": {
 				"group": "watch",
 				"reveal": "always"
@@ -158,7 +157,7 @@
 			"problemMatcher": "$tsc-watch",
 			"isBackground": true,
 			"label": "npm: watch:tsc",
-			"dependsOn": ["npm: protos"],
+			"dependsOn": [],
 			"presentation": {
 				"group": "watch",
 				"reveal": "always"
@@ -169,7 +168,7 @@
 			"script": "watch-tests",
 			"problemMatcher": "$tsc-watch",
 			"isBackground": true,
-			"dependsOn": ["npm: protos"],
+			"dependsOn": [],
 			"presentation": {
 				"reveal": "always",
 				"group": "watchers"
@@ -178,7 +177,7 @@
 		},
 		{
 			"label": "tasks: watch-tests",
-			"dependsOn": ["npm: protos", "npm: watch", "npm: watch-tests"],
+			"dependsOn": ["npm: watch", "npm: watch-tests"],
 			"problemMatcher": []
 		},
 		{
