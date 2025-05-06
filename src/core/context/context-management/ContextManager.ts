@@ -9,6 +9,11 @@ import { ClineApiReqInfo, ClineMessage } from "@shared/ExtensionMessage"
 import { ApiHandler } from "@api/index"
 import { Anthropic } from "@anthropic-ai/sdk"
 
+interface ContextHistoryEntry {
+  editType: number;
+  innerMap: Map<number, ContextUpdate[]>;
+}
+
 enum EditType {
 	UNDEFINED = 0,
 	NO_FILE_READ = 1,
@@ -18,10 +23,10 @@ enum EditType {
 }
 
 interface FileReadInfo {
-    messageIndex: number;
-    editType: number;
-    searchText: string;
-    replaceText: string;
+    messageIndex: number
+    editType: EditType
+    searchText?: string // search text (for file mentions, else empty string)
+    replaceText: string // what we will replace the string with
 }
 
 // array of string values allows us to cover all changes for message types currently supported
@@ -54,10 +59,10 @@ export class ContextManager
 	// moving to an earlier conversation history checkpoint - this ordering intuitively allows for binary search on truncation
 	// there is also a number stored for each (EditType) which defines which message type it is, for custom handling
 
-	// format:  { outerIndex => [EditType, { innerIndex => [[timestamp, updateType, update], ...] }] }
-	// example: { 1 => { [0, 0 => [[<timestamp>, "text", "[NOTE] Some previous conversation history with the user has been removed ..."], ...] }] }
+	// format:  { outerIndex => { editType: EditType, innerMap: { innerIndex => [[timestamp, updateType, update], ...] } } }
+	// example: { 1 => { editType: EditType.UNDEFINED, innerMap: { 0 => [[<timestamp>, "text", "[NOTE] Some previous conversation history with the user has been removed ..."], ...] } } }
 	// the above example would be how we update the first assistant message to indicate we truncated text
-	private contextHistoryUpdates: Map<number, [number, Map<number, ContextUpdate[]>]>
+	private contextHistoryUpdates: Map<number, ContextHistoryEntry>
 
 	private baseDir:string
 	private taskId:string
@@ -80,19 +85,18 @@ export class ContextManager
 	/**
 	 * get the stored context history updates from disk
 	 */
-	private async getSavedContextHistory(): Promise<Map<number, [number, Map<number, ContextUpdate[]>]>> 
+	private async getSavedContextHistory(): Promise<Map<number, ContextHistoryEntry>>
 	{
 		const taskDirectory = await ensureTaskDirectoryExists(this.baseDir, this.taskId)
 		try {
-
 			const data = await loadFileAt(taskDirectory, GlobalFileNames.contextHistory)
 			const parsedData = JSON.parse(data ?? "") as SerializedContextHistory
 
-			// Update to properly reconstruct the tuple structure
+			// Update to properly reconstruct the object structure
 			return new Map(
 				parsedData.map(([messageIndex, [numberValue, innerMapArray]]) => [
 					messageIndex,
-					[numberValue, new Map(innerMapArray)],
+					{ editType: numberValue, innerMap: new Map(innerMapArray) },
 				]),
 			)
 		} catch (error) {}
@@ -102,15 +106,15 @@ export class ContextManager
 	/**
 	 * save the context history updates to disk
 	 */
-	private async saveContextHistory() 
+	private async saveContextHistory()
 	{
 		const taskDirectory = await ensureTaskDirectoryExists(this.baseDir, this.taskId)
 		try {
 			const serializedUpdates: SerializedContextHistory = Array.from(this.contextHistoryUpdates.entries()).map(
-				([messageIndex, [numberValue, innerMap]]) => [messageIndex, [numberValue, Array.from(innerMap.entries())]],
+				([messageIndex, { editType, innerMap }]) => [messageIndex, [editType, Array.from(innerMap.entries())]],
 			)
 
-			await fs.writeFile(path.join(taskDirectory, GlobalFileNames.contextHistory), JSON.stringify(serializedUpdates), "utf8")			 
+			await fs.writeFile(path.join(taskDirectory, GlobalFileNames.contextHistory), JSON.stringify(serializedUpdates), "utf8")
 		} catch (error) {}
 	}
 
@@ -126,7 +130,7 @@ export class ContextManager
 		let updatedConversationHistoryDeletedRange = false
 
 		// If the previous API request's total token usage is close to the context window, truncate the conversation history to free up space for the new request
-		if (previousRequest && previousRequest.text) 
+		if (previousRequest && previousRequest.text)
 		{
 			const timestamp = previousRequest.ts
 			const { tokensIn, tokensOut, cacheWrites, cacheReads }: ClineApiReqInfo = JSON.parse(previousRequest.text)
@@ -140,12 +144,12 @@ export class ContextManager
 				const keep = totalTokens / 2 > maxAllowedSize ? "quarter" : "half"
 
 				// we later check how many chars we trim to determine if we should still truncate history
-				let [anyContextUpdates, uniqueFileReadIndices] = this.applyContextOptimizations(
+				let uniqueFileReadIndices = this.findAndPotentiallySaveFileReadContextHistoryUpdates(
 					apiConversationHistory,
 					conversationHistoryDeletedRange ? conversationHistoryDeletedRange[1] + 1 : 2,
-					timestamp,
-				)
+					timestamp)
 
+				let anyContextUpdates = uniqueFileReadIndices.size > 0
 				let needToTruncate = true
 				if (anyContextUpdates) {
 					// determine whether we've saved enough chars to not truncate
@@ -177,7 +181,6 @@ export class ContextManager
 				if (anyContextUpdates) {
 					await this.saveContextHistory()
 				}
-				
 			}
 		}
 
@@ -298,8 +301,8 @@ export class ContextManager
 			messagesToUpdate[arrayIndex] = cloneDeep(messagesToUpdate[arrayIndex])
 
 			// Extract the map from the tuple
-			const innerMap = innerTuple[1]
-			for (const [blockIndex, changes] of innerMap) {
+			
+			for (const [blockIndex, changes] of innerTuple.innerMap) {
 				// apply the latest change among n changes - [timestamp, updateType, update]
 				const latestChange = changes[changes.length - 1]
 
@@ -335,10 +338,10 @@ export class ContextManager
 	 * removes the index if there are no alterations there anymore, both outer and inner indices
 	 */
 	private truncateContextHistoryAtTimestamp(
-		contextHistory: Map<number, [number, Map<number, ContextUpdate[]>]>,
+		contextHistory: Map<number, ContextHistoryEntry>,
 		timestamp: number,
 	): void {
-		for (const [messageIndex, [_, innerMap]] of contextHistory) {
+		for (const [messageIndex, { innerMap }] of contextHistory) {
 			// track which blockIndices to delete
 			const blockIndicesToDelete: number[] = []
 
@@ -374,25 +377,7 @@ export class ContextManager
 		}
 	}
 
-	/**
-	 * applies the context optimization steps and returns whether any changes were made
-	 */
-	private applyContextOptimizations(
-		apiMessages: Anthropic.Messages.MessageParam[],
-		startFromIndex: number,
-		timestamp: number,
-	): [boolean, Set<number>] {
-		const [fileReadUpdatesBool, uniqueFileReadIndices] = this.findAndPotentiallySaveFileReadContextHistoryUpdates(
-			apiMessages,
-			startFromIndex,
-			timestamp,
-		)
 
-		// true if any context optimization steps alter state
-		const contextHistoryUpdated = fileReadUpdatesBool
-
-		return [contextHistoryUpdated, uniqueFileReadIndices]
-	}
 
 	/**
 	 * Public function for triggering potentially setting the truncation message
@@ -413,7 +398,7 @@ export class ContextManager
 			// first assistant message always at index 1
 			const innerMap = new Map<number, ContextUpdate[]>()
 			innerMap.set(0, [[timestamp, "text", [formatResponse.contextTruncationNotice()], []]])
-			this.contextHistoryUpdates.set(1, [0, innerMap]) // EditType is undefined for first assistant message
+			this.contextHistoryUpdates.set(1, { editType: EditType.UNDEFINED, innerMap }) // EditType is undefined for first assistant message
 			return true
 		}
 		return false
@@ -427,7 +412,7 @@ export class ContextManager
 		apiMessages: Anthropic.Messages.MessageParam[],
 		startFromIndex: number,
 		timestamp: number,
-	): [boolean, Set<number>] {
+	): Set<number> {
 		const [fileReadIndices, messageFilePaths] = this.getPossibleDuplicateFileReads(apiMessages, startFromIndex)
 		return this.applyFileReadContextHistoryUpdates(fileReadIndices, messageFilePaths, apiMessages, timestamp)
 	}
@@ -455,15 +440,16 @@ export class ContextManager
 		for (let i = startFromIndex; i < apiMessages.length; i++) {
 			let thisExistingFileReads: string[] = []
 
-			if (this.contextHistoryUpdates.has(i)) {
+			if (this.contextHistoryUpdates.has(i)) 
+			{
 				const innerTuple = this.contextHistoryUpdates.get(i)
 
 				if (innerTuple) {
 					// safety check
-					const editType = innerTuple[0]
+					const editType = innerTuple.editType
 
 					if (editType === EditType.FILE_MENTION) {
-						const innerMap = innerTuple[1]
+						const innerMap = innerTuple.innerMap
 
 						const blockIndex = 1 // file mention blocks assumed to be at index 1
 						const blockUpdates = innerMap.get(blockIndex)
@@ -631,36 +617,32 @@ export class ContextManager
 		messageFilePaths: Map<number, string[]>,
 		apiMessages: Anthropic.Messages.MessageParam[],
 		timestamp: number,
-	): [boolean, Set<number>] {
-		let didUpdate = false
+	): Set<number> {
+		
 		const updatedMessageIndices = new Set<number>() // track which messages we update on this round
 		const fileMentionUpdates = new Map<number, [string, string[]]>()
 
-		for (const [filePath, indices] of fileReadIndices.entries()) {
-			// Only process if there are multiple reads of the same file, else we will want to keep the latest read of the file
-			if (indices.length > 1) 
+		for (const [filePath, indices] of fileReadIndices.entries()) 
+		{
+			if (indices.length > 1) // Only process if there are multiple reads file, else we will want to keep the latest read of the file
 			{
-				// Process all but the last index, as we will keep that instance of the file read
-				for (const indexInfo of indices.slice(0, indices.length - 1)) {
-					const messageIndex = indexInfo.messageIndex
-					const messageType = indexInfo.editType // EditType value
-					const searchText = indexInfo.searchText // search text (for file mentions, else empty string)
-					const messageString = indexInfo.replaceText // what we will replace the string with
-
-					didUpdate = true
-					updatedMessageIndices.add(messageIndex)
+				for (const indexInfo of indices.slice(0, indices.length - 1))// Process all but the last, keep it
+				{
+					updatedMessageIndices.add(indexInfo.messageIndex)
 
 					// for single-fileread text we can set the updates here
 					// for potential multi-fileread text we need to determine all changes & iteratively update the text prior to saving the final change
-					if (messageType === EditType.FILE_MENTION) {
-						if (!fileMentionUpdates.has(messageIndex)) {
+					if (indexInfo.editType === EditType.FILE_MENTION) 
+					{
+						if (!fileMentionUpdates.has(indexInfo.messageIndex)) 
+						{
 							// Get base text either from existing updates or from apiMessages
 							let baseText = ""
 							let prevFilesReplaced: string[] = []
 
-							const innerTuple = this.contextHistoryUpdates.get(messageIndex)
+							const innerTuple = this.contextHistoryUpdates.get(indexInfo.messageIndex)
 							if (innerTuple) {
-								const blockUpdates = innerTuple[1].get(1) // assumed index=1 for file mention filereads
+								const blockUpdates = innerTuple.innerMap.get(1) // assumed index=1 for file mention filereads
 								if (blockUpdates && blockUpdates.length > 0) {
 									baseText = blockUpdates[blockUpdates.length - 1][2][0] // index 0 of MessageContent
 									prevFilesReplaced = blockUpdates[blockUpdates.length - 1][3][0] // previously overwritten file reads in this text
@@ -668,7 +650,7 @@ export class ContextManager
 							}
 
 							// can assume that this content will exist, otherwise it would not have been in fileReadIndices
-							const messageContent = apiMessages[messageIndex]?.content
+							const messageContent = apiMessages[indexInfo.messageIndex]?.content
 							if (!baseText && Array.isArray(messageContent) && messageContent.length > 1) {
 								const contentBlock = messageContent[1] // assume index=1 for all text to replace for file mention filereads
 								if (contentBlock.type === "text") {
@@ -677,33 +659,36 @@ export class ContextManager
 							}
 
 							// prevFilesReplaced keeps track of the previous file reads we've replace in this string, empty array if none
-							fileMentionUpdates.set(messageIndex, [baseText, prevFilesReplaced])
+							fileMentionUpdates.set(indexInfo.messageIndex, [baseText, prevFilesReplaced])
 						}
 
 						// Replace searchText with messageString for all file reads we need to replace in this text
-						if (searchText) {
-							const currentTuple = fileMentionUpdates.get(messageIndex) || ["", []]
+						if (indexInfo.searchText ) 
+						{
+							const currentTuple = fileMentionUpdates.get(indexInfo.messageIndex) || ["", []]
 							if (currentTuple[0]) {
 								// safety check
 								// replace this text chunk
-								const updatedText = currentTuple[0].replace(searchText, messageString)
+								const updatedText = currentTuple[0].replace(indexInfo.searchText , indexInfo.replaceText )
 
 								// add the newly added filePath read
 								const updatedFileReads = currentTuple[1]
 								updatedFileReads.push(filePath)
 
-								fileMentionUpdates.set(messageIndex, [updatedText, updatedFileReads])
+								fileMentionUpdates.set(indexInfo.messageIndex, [updatedText, updatedFileReads])
 							}
 						}
-					} else {
-						let innerTuple = this.contextHistoryUpdates.get(messageIndex)
+					} 
+					else 
+					{
+						let innerTuple = this.contextHistoryUpdates.get(indexInfo.messageIndex)
 						let innerMap: Map<number, ContextUpdate[]>
 
 						if (!innerTuple) {
 							innerMap = new Map<number, ContextUpdate[]>()
-							this.contextHistoryUpdates.set(messageIndex, [messageType, innerMap])
+							this.contextHistoryUpdates.set(indexInfo.messageIndex, {editType: indexInfo.editType, innerMap})
 						} else {
-							innerMap = innerTuple[1]
+							innerMap = innerTuple.innerMap
 						}
 
 						// block index for file reads from read_file, write_to_file, replace_in_file tools is 1
@@ -712,7 +697,7 @@ export class ContextManager
 						const updates = innerMap.get(blockIndex) || []
 
 						// metadata array is empty for non-file mention occurrences
-						updates.push([timestamp, "text", [messageString], []])
+						updates.push([timestamp, "text", [indexInfo.replaceText ], []])
 
 						innerMap.set(blockIndex, updates)
 					}
@@ -728,9 +713,9 @@ export class ContextManager
 
 			if (!innerTuple) {
 				innerMap = new Map<number, ContextUpdate[]>()
-				this.contextHistoryUpdates.set(messageIndex, [EditType.FILE_MENTION, innerMap])
+				this.contextHistoryUpdates.set(messageIndex, {editType: EditType.FILE_MENTION, innerMap})
 			} else {
-				innerMap = innerTuple[1]
+				innerMap = innerTuple.innerMap
 			}
 
 			const blockIndex = 1 // we only consider the block index of 1 for file mentions
@@ -749,7 +734,7 @@ export class ContextManager
 			}
 		}
 
-		return [didUpdate, updatedMessageIndices]
+		return updatedMessageIndices
 	}
 
 	/**
@@ -786,7 +771,7 @@ export class ContextManager
 						// true if we just altered it, or it was altered before
 						if (hasExistingAlterations) {
 							const innerTuple = this.contextHistoryUpdates.get(i)
-							const updates = innerTuple?.[1].get(blockIndex) // updated text for this inner index
+							const updates = innerTuple?.innerMap.get(blockIndex) // updated text for this inner index
 
 							if (updates && updates.length > 0) {
 								// exists if we have an update for the message at this index
