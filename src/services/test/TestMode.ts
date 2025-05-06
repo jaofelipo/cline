@@ -11,6 +11,7 @@ import { Logger } from "../logging/Logger"
 import { createTestServer, shutdownTestServer } from "./TestServer"
 import { execa } from "execa"
 import { cwd, Task } from "@/core/task"
+import { executeCommandTool } from "../terminal/executeCommand"
 
 // State variable
 let isTestMode = false
@@ -112,7 +113,6 @@ export function cleanupTestMode(): void {
 
 export class TestWrapper
 {
-
 	static async executeCommandTool(command: string, task:Task)
 	{
 		Logger.info("IS_TEST: " + isInTestMode())
@@ -123,7 +123,7 @@ export class TestWrapper
 		}
 		Logger.info("Executing command in VS code terminal: " + command)
 		
-		return await task.executeCommandTool(command)
+		return await executeCommandTool.call(task, command)
 
 		/**
 		 * Executes a command directly in Node.js using execa

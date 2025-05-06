@@ -10,7 +10,7 @@ import pWaitFor from "p-wait-for"
 import { setTimeout as setTimeoutPromise } from "node:timers/promises"
 import axios from "axios"
 import { fileExistsAtPath } from "@utils/fs"
-import { BrowserActionResult } from "@shared/ExtensionMessage"
+import { BrowserAction, BrowserActionResult } from "@shared/ExtensionMessage"
 import { BrowserSettings } from "@shared/BrowserSettings"
 import { discoverChromeInstances, testBrowserConnection, isPortOpen } from "./BrowserDiscovery"
 import * as chromeLauncher from "chrome-launcher"
@@ -590,6 +590,27 @@ export class BrowserSession {
 		}
 	}
 
+	async executeAction(action:any, coordinate?:string, text?:string)
+	{
+		switch (action) 
+		{
+			case "click":
+				return await this.click(coordinate!)
+			case "scroll_down":
+				return await this.scrollDown()
+			case "scroll_up":
+				return await this.scrollUp()
+			case "type":
+				await this.type(text!)
+				break
+			case "close":
+				await this.closeBrowser()
+				break
+		}
+		return undefined
+	}
+
+	
 	async click(coordinate: string): Promise<BrowserActionResult> {
 		this.browserActions.push(`click: coordinate`)
 
@@ -661,7 +682,8 @@ export class BrowserSession {
 		})
 	}
 
-	async dispose() {
+	async dispose() 
+	{
 		await this.closeBrowser()
 	}
 }

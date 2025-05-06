@@ -34,8 +34,9 @@ export const ptBr:Labels = {
         shellIntegrationWarning: "Aviso de integração do shell.",
         userFeedbackTitle: "Feedback do Usuário",
         clineTrouble:"Cline is having trouble. Would you like to continue the task?",
-        claudeLimit: 'This may indicate a failure in his thought process or inability to use a tool properly, which can be mitigated with some user guidance (e.g. "Try breaking down the task into smaller steps").',
-        nonClaudeLimit: "Cline uses complex prompts and iterative task execution that may be challenging for less capable models. For best results, it's recommended to use Claude 3.5 Sonnet for its advanced agentic coding capabilities.",
+        mistakeLimitReach: (useClaude:boolean) => (useClaude) 
+            ? 'This may indicate a failure in his thought process or inability to use a tool properly, which can be mitigated with some user guidance (e.g. "Try breaking down the task into smaller steps").'
+            : "Cline uses complex prompts and iterative task execution that may be challenging for less capable models. For best results, it's recommended to use Claude 3.5 Sonnet for its advanced agentic coding capabilities.",
         maxRequestsReached: (maxRequests:number, ask:boolean=false) => `Cline has auto-approved ${maxRequests.toString()} API requests. ${ask ? "Would you like to reset the count and proceed with the task?" : ""}`,
         unexpectedApi: "Unexpected API Response: The language model did not provide any assistant messages. This may indicate an issue with the API or the model's output.",
         assistantFailure: "Failure: I did not provide a response.",
@@ -72,7 +73,13 @@ export const ptBr:Labels = {
         contextTruncationNotice: `[NOTE] Some previous conversation history with the user has been removed to maintain optimal context window length. The initial user task and the most recent exchanges have been retained for continuity, while intermediate conversation history has been removed. Please keep this in mind as you continue assisting the user.`,        
         newTaskWithFeedback: (text:string) => `The user provided feedback instead of creating a new task:\n<feedback>\n${text}\n</feedback>`,
         condenseFeedback: (text:string) => `The user provided feedback on the condensed conversation summary:\n<feedback>\n${text}\n</feedback>`,
-        fileEditByUser: (relPath: string, userEdits: string, autoFormatted?: string, content?: string, newProblems?: string) =>
+        fileEdit: (relPath: string, autoFormatted?: string, content?: string, newProblems?: string, userEdits?: string) =>{
+            newProblems = (newProblems != undefined) ? `\n\nNew problems detected after saving the file:\n${newProblems}` : ""
+            return (userEdits !== undefined) 
+                ? ptBr.assistantMessage.fileEditByUser(relPath, autoFormatted, content, newProblems, userEdits)
+                : ptBr.assistantMessage.fileEditByLLM(relPath, autoFormatted, content, newProblems)
+        },
+        fileEditByUser: (relPath: string, autoFormatted?: string, content?: string, newProblems?: string, userEdits?: string,) =>
             `The user made the following updates to your content:\n\n${userEdits}\n\n` +
             (autoFormatted
                 ? `The user's editor also applied the following auto-formatting to your content:\n\n${autoFormatted}\n\n(Note: Pay close attention to changes such as single quotes being converted to double quotes, semicolons being removed or added, long lines being broken into multiple lines, adjusting indentation style, adding/removing trailing commas, etc. This will help you ensure future SEARCH/REPLACE operations to this file are accurate.)\n\n`
@@ -85,7 +92,7 @@ export const ptBr:Labels = {
             `3. If the user's edits have addressed part of the task or changed the requirements, adjust your approach accordingly.` +
             `4. IMPORTANT: For any future changes to this file, use the final_file_content shown above as your reference. This content reflects the current state of the file, including both user edits and any auto-formatting (e.g., if you used single quotes but the formatter converted them to double quotes). Always base your SEARCH/REPLACE operations on this final version to ensure accuracy.\n` +
             `${newProblems}`,
-        fileEdit: (relPath: string, autoFormatted?: string, content?: string, newProblems?: string) =>
+        fileEditByLLM: (relPath: string, autoFormatted?: string, content?: string, newProblems?: string) =>
             `The content was successfully saved to ${relPath.toPosix()}.\n\n` +
             (autoFormatted
                 ? `Along with your edits, the user's editor applied the following auto-formatting to your content:\n\n${autoFormatted}\n\n(Note: Pay close attention to changes such as single quotes being converted to double quotes, semicolons being removed or added, long lines being broken into multiple lines, adjusting indentation style, adding/removing trailing commas, etc. This will help you ensure future SEARCH/REPLACE operations to this file are accurate.)\n\n`
@@ -117,7 +124,17 @@ export const ptBr:Labels = {
         defaultErrorFormatted: (action:string, error:Error) => `Error ${action}:\n${error.message ?? JSON.stringify(serializeError(error), null, 2)}`,
         invalidToolnameArgumentError: (tool_name?:string) => `Cline tried to use ${tool_name} with an invalid JSON argument. Retrying...`,
         resultWithFeedback: (response) => `The user has provided feedback on the results. Consider their input to continue the task, and then attempt completion again.\n<feedback>\n${response}\n</feedback>`,
-        toolDenied: `The user denied this operation.`,
+        toolDenied:(block:ToolUse) => {
+            let result = `The user denied this operation.` 
+            switch(block.name)
+            {
+                case 'write_to_file':
+                    return result + " The file was not updated, and maintains its original contents."
+				case 'replace_in_file':
+                    return result + " The file was not created."
+            }
+            return result
+        },
         reponseWithFeedback: (feedback?: string) =>
             `The user provided the following feedback:\n<feedback>\n${feedback}\n</feedback>`,
         browserClosed:`The browser has been closed. You may now proceed to using other tools.`,
@@ -193,6 +210,10 @@ export const ptBr:Labels = {
                     return `Cline wants to execute a command: ${block.params.command}`
                 case 'browser_action':
                     return `Cline wants to use a browser and launch ${block.params.url}`
+                case 'replace_in_file':
+                     return `Cline wants to edit ${path.basename(block.params.path!)}`
+                case 'write_to_file':
+                    return `Cline wants to create ${path.basename(block.params.path!)}`
             }
             return ''
         },

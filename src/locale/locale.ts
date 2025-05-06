@@ -70,8 +70,7 @@ export interface Labels {
         shellIntegrationWarning: string
         userFeedbackTitle: string
         clineTrouble:string
-        claudeLimit:string
-        nonClaudeLimit:string
+        mistakeLimitReach: (useClaude:boolean) => string
         maxRequestsReached: (maxRequests:number, ask?:boolean) => string;
         unexpectedApi:string
         assistantFailure:string
@@ -97,9 +96,10 @@ export interface Labels {
         defaultErrorFormatted: (action:string, error:Error) => string
         defaultError: (action:string, error:Error) => string
         resultWithFeedback: (response?:String) => string,
-        toolDenied:string
-        fileEditByUser: (relPath: string, userEdits: string, autoFormatted?: string, content?: string, newProblems?: string) => string
-        fileEdit: (relPath: string, autoFormatted?: string, content?: string, newProblems?: string) => string
+        toolDenied:(block:ToolUse) => string
+        fileEdit: (relPath: string, autoFormatted?: string, content?: string, newProblems?: string, userEdits?: string) => string
+        fileEditByUser: (relPath: string, autoFormatted?: string, content?: string, newProblems?: string, userEdits?: string) => string
+        fileEditByLLM: (relPath: string, autoFormatted?: string, content?: string, newProblems?: string) => string
         reponseWithFeedback: (feedback?: string) => string
         browserClosed:string
         browserAction: (consoleLogs?:string) => string
