@@ -1,5 +1,4 @@
 import { getContextWindowInfo } from "./context-window-utils"
-import { formatResponse } from "@core/prompts/responses"
 import { GlobalFileNames } from "@core/storage/disk"
 import { fileExistsAtPath } from "@utils/fs"
 import * as path from "path"
@@ -117,14 +116,14 @@ export class ContextManager
 		clineMessages: ClineMessage[],
 		api: ApiHandler,
 		conversationHistoryDeletedRange: [number, number] | undefined,
-		previousApiReqIndex: number,
+		previousRequest: ClineMessage | undefined,
 		taskDirectory: string,
 	) {
 		let updatedConversationHistoryDeletedRange = false
 
 		// If the previous API request's total token usage is close to the context window, truncate the conversation history to free up space for the new request
-		if (previousApiReqIndex >= 0) {
-			const previousRequest = clineMessages[previousApiReqIndex]
+		if (previousRequest) 
+		{
 			if (previousRequest && previousRequest.text) {
 				const timestamp = previousRequest.ts
 				const {usage}: ClineApiReqInfo = JSON.parse(previousRequest.text)

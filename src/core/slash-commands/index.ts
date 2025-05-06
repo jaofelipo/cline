@@ -4,9 +4,8 @@ import { newTaskToolResponse } from "../prompts/commands"
  * Processes text for slash commands and transforms them with appropriate instructions
  * This is called after parseMentions() to process any slash commands in the user's message
  */
-export function parseSlashCommands(text: string): string {
-	const SUPPORTED_COMMANDS = ["newtask"]
-
+export function parseSlashCommands(text: string): string 
+{
 	const commandReplacements: Record<string, string> = {
 		newtask: newTaskToolResponse(),
 	}
@@ -18,19 +17,18 @@ export function parseSlashCommands(text: string): string {
 		{ tag: "answer", regex: /<answer>(\s*\/([a-zA-Z0-9_-]+))(\s+.+?)?\s*<\/answer>/is },
 		{ tag: "user_message", regex: /<user_message>(\s*\/([a-zA-Z0-9_-]+))(\s+.+?)?\s*<\/user_message>/is },
 	]
-
-	// if we find a valid match, we will return inside that block
-	for (const { tag, regex } of tagPatterns) {
+	
+	for (const { tag, regex } of tagPatterns) // if we find a valid match, we will return inside that block
+	{
 		const regexObj = new RegExp(regex.source, regex.flags)
 		const match = regexObj.exec(text)
 
-		if (match) {
-			// match[1] is the command with any leading whitespace (e.g. " /newtask")
-			// match[2] is just the command name (e.g. "newtask")
+		if (match) // match[1] is the command with any leading whitespace (e.g. " /newtask"), 
+		{
+			const commandName = match[2] //match[2] is just the command name (e.g. "newtask")
 
-			const commandName = match[2] // casing matters
-
-			if (SUPPORTED_COMMANDS.includes(commandName)) {
+			if (commandName === "newtask") 
+			{
 				const fullMatchStartIndex = match.index
 
 				// find position of slash command within the full match
@@ -50,6 +48,5 @@ export function parseSlashCommands(text: string): string {
 		}
 	}
 
-	// if no supported commands are found, return the original text
-	return text
+	return text// if no supported commands are found, return the original text
 }

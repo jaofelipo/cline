@@ -2,80 +2,100 @@ import { Anthropic } from "@anthropic-ai/sdk"
 import os from "os"
 import * as path from "path"
 import * as vscode from "vscode"
+import { capitalizeFirstLetter } from "../../utils/string"
+import { ImageBlockParam, TextBlockParam, ToolResultBlockParam, ToolUseBlockParam } from "@anthropic-ai/sdk/resources/messages.mjs"
 
-export async function downloadTask(dateTs: number, conversationHistory: Anthropic.MessageParam[]) {
-	// File name
-	const date = new Date(dateTs)
-	const month = date.toLocaleString("en-US", { month: "short" }).toLowerCase()
-	const day = date.getDate()
-	const year = date.getFullYear()
-	let hours = date.getHours()
-	const minutes = date.getMinutes().toString().padStart(2, "0")
-	const seconds = date.getSeconds().toString().padStart(2, "0")
-	const ampm = hours >= 12 ? "pm" : "am"
-	hours = hours % 12
-	hours = hours ? hours : 12 // the hour '0' should be '12'
-	const fileName = `cline_task_${month}-${day}-${year}_${hours}-${minutes}-${seconds}-${ampm}.md`
-
+export async function downloadTask(dateTs: number, conversationHistory: Anthropic.MessageParam[]) 
+{
+	const options = {
+		filters: { Markdown: ["md"] },
+		defaultUri: vscode.Uri.file(path.join(os.homedir(), "Downloads", createDateBasedFilename("cline_task_", "md", dateTs))),
+	}	
 	// Generate markdown
 	const markdownContent = conversationHistory
-		.map((message) => {
-			const role = message.role === "user" ? "**User:**" : "**Assistant:**"
-			const content = Array.isArray(message.content)
-				? message.content.map((block) => formatContentBlockToMarkdown(block)).join("\n")
-				: message.content
-			return `${role}\n\n${content}\n\n`
-		})
+		.map((message) => `**${ (message.role === "user") ? "User" : "Assistant" }:**\n\n${formatBlockToMarkdown(message.content)}\n\n`)
 		.join("---\n\n")
+	const saveUri = await vscode.window.showSaveDialog(options) // Prompt user for save location
 
-	// Prompt user for save location
-	const saveUri = await vscode.window.showSaveDialog({
-		filters: { Markdown: ["md"] },
-		defaultUri: vscode.Uri.file(path.join(os.homedir(), "Downloads", fileName)),
-	})
-
-	if (saveUri) {
-		try {
-			// Write content to the selected location
-			await vscode.workspace.fs.writeFile(saveUri, new TextEncoder().encode(markdownContent))
+	if (saveUri) 
+	{
+		try 
+		{			
+			await vscode.workspace.fs.writeFile(saveUri, new TextEncoder().encode(markdownContent)) // Write content to the selected location
 			vscode.window.showTextDocument(saveUri, { preview: true })
-		} catch (error) {
-			vscode.window.showErrorMessage(
-				`Failed to save markdown file: ${error instanceof Error ? error.message : String(error)}`,
-			)
+		}
+		catch (error) 
+		{
+			vscode.window.showErrorMessage(`Failed to save markdown file: ${error instanceof Error ? error.message : String(error)}`)
 		}
 	}
 }
 
-export function formatContentBlockToMarkdown(block: Anthropic.ContentBlockParam): string {
-	switch (block.type) {
+export function formatToMarkdown(content:any[], extra?:string)
+{
+	let request = formatBlockToMarkdown(content, "\n\n")
+	if (extra)
+		request += extra 
+	return  {request}
+}
+
+export function findToolName(toolCallId:string, messages:Anthropic.MessageParam[]): string 
+{
+	for (const message of messages) 
+	{
+		if (Array.isArray(message.content)) 
+		{
+			for (const block of message.content) 
+			{
+				if (block.type === "tool_use" && block.id === toolCallId) 
+					return block.name
+			}
+		}
+	}
+	return "Unknown Tool"
+}
+
+function createDateBasedFilename(prefix:string, extension:string, dateTs:number = Date.now()):string 
+{
+    const date = new Date(dateTs)
+    const month = date.toLocaleString("en-US", { month: "short" }).toLowerCase()
+    const day = date.getDate()
+    const year = date.getFullYear()
+    let hours = date.getHours()
+    const minutes = date.getMinutes().toString().padStart(2, "0")
+    const seconds = date.getSeconds().toString().padStart(2, "0")
+    const ampm = hours >= 12 ? "pm" : "am"
+    hours = hours % 12;
+    hours = hours ? hours : 12; // the hour '0' should be '12'
+    
+    return `${prefix}${month}-${day}-${year}_${hours}-${minutes}-${seconds}-${ampm}.${extension}`;
+}
+
+function formatBlockToMarkdown(block:string | Array<any> | ImageBlockParam | TextBlockParam | ToolResultBlockParam | ToolUseBlockParam , separator:string="\n"): string 
+{
+	if (Array.isArray(block)) 
+		return block.map(b => formatBlockToMarkdown(b)).join(separator);
+	
+	if (typeof block === "string") 
+		return block;
+
+	switch (block.type) 
+	{
 		case "text":
 			return block.text
 		case "image":
 			return `[Image]`
-		case "document":
-			return `[Document]`
 		case "tool_use":
-			let input: string
-			if (typeof block.input === "object" && block.input !== null) {
-				input = Object.entries(block.input)
-					.map(([key, value]) => `${key.charAt(0).toUpperCase() + key.slice(1)}: ${value}`)
+			let input = (typeof block.input === "object")
+				? Object.entries(block.input ?? {})
+					.map(([key, value]) => `${capitalizeFirstLetter(key)}: ${value}`)
 					.join("\n")
-			} else {
-				input = String(block.input)
-			}
+				: String(block.input)
 			return `[Tool Use: ${block.name}]\n${input}`
 		case "tool_result":
-			if (typeof block.content === "string") {
-				return `[Tool${block.is_error ? " (Error)" : ""}]\n${block.content}`
-			} else if (Array.isArray(block.content)) {
-				return `[Tool${block.is_error ? " (Error)" : ""}]\n${block.content
-					.map((contentBlock) => formatContentBlockToMarkdown(contentBlock))
-					.join("\n")}`
-			} else {
-				return `[Tool${block.is_error ? " (Error)" : ""}]`
-			}
-		default:
-			return "[Unexpected content type]"
+			let result = `[${"Tool"}${block.is_error ? " (Error)" : ""}]`
+			if (block.content) 
+                result += `\n${formatBlockToMarkdown(block.content)}`
+			return result
 	}
 }

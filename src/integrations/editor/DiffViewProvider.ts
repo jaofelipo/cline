@@ -7,11 +7,11 @@ import { formatResponse } from "@core/prompts/responses"
 import { DecorationController } from "./DecorationController"
 import * as diff from "diff"
 import { diagnosticsToProblemsString, getNewDiagnostics } from "../diagnostics"
-import { detectEncoding } from "../misc/extract-text"
 import * as iconv from "iconv-lite"
 import { cwd } from "@/core/task"
 import { normalizeEOL } from "@/utils/string"
 import { findInputDiffTabs, getInputDiffTabs, listenEvent } from "@/utils/vsCodeUtils"
+import { detectEncoding } from "../misc/vs-Integration"
 
 export const DIFF_VIEW_URI_SCHEME = "cline-diff"
 
@@ -297,6 +297,12 @@ export class DiffViewProvider
 		this.activeLineController = undefined
 		this.streamedLines = []
 		this.preDiagnostics = []
+	}
+
+	async revertAndReset()
+	{
+		await this.revertChanges()
+		await this.reset()
 	}
 
 	private createPrettyPatch(filename="file", old?:string, updated?:string)

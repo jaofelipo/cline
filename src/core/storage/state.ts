@@ -23,7 +23,8 @@ export async function updateGlobalState(context: vscode.ExtensionContext, key: G
 	await context.globalState.update(key, value)
 }
 
-export async function getGlobalState(context: vscode.ExtensionContext, key: GlobalStateKey) {
+export async function getGlobalState(context: vscode.ExtensionContext, key: GlobalStateKey):Promise<string | undefined>
+{
 	return await context.globalState.get(key)
 }
 
