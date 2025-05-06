@@ -11,13 +11,15 @@ import { cwd, Task } from ".";
 import { OpenRouterHandler } from "@/api/providers/openrouter";
 import { ClineHandler } from "@/api/providers/cline";
 import { AnthropicHandler } from "@/api/providers/anthropic";
-import { checkIsAnthropicContextWindowError, checkIsOpenRouterContextWindowError } from "../context/context-management/context-error-handling";
 import { setTimeout as delay } from "node:timers/promises"
 
 export class ApiClient 
 {
-   constructor() 
+	private shouldAutoRetry = true
+   	
+	constructor() 
     {
+		
     }
 
     async *attemptApiRequest(task:Task, previousApiReqIndex: number): ApiStream 
@@ -155,15 +157,13 @@ export class ApiClient
 		const isOpenRouter = task.api instanceof OpenRouterHandler || task.api instanceof ClineHandler
 		const isAnthropic = task.api instanceof AnthropicHandler
 	
-		const openRouterContextError = isOpenRouter && checkIsOpenRouterContextWindowError(error)
-		const anthropicContextError = isAnthropic && checkIsAnthropicContextWindowError(error)
+		const openRouterContextError = isOpenRouter && this.checkIsOpenRouterContextWindowError(error)
+		const anthropicContextError = isAnthropic && this.checkIsAnthropicContextWindowError(error)
 	
-		const shouldAutoRetry = !task.didAutomaticallyRetryFailedApiRequest
-
-		if ((openRouterContextError || anthropicContextError) && shouldAutoRetry) 
+		if ((openRouterContextError || anthropicContextError) && this.shouldAutoRetry) 
 		{
 			await this.truncateAndRetry(task)
-			task.didAutomaticallyRetryFailedApiRequest = true
+			this.shouldAutoRetry = false
 	
 			if (isOpenRouter) 
 				await delay(1000)
@@ -181,7 +181,7 @@ export class ApiClient
 	
 			if (truncated.length > 3) 
 			{
-				task.didAutomaticallyRetryFailedApiRequest = false
+				this.shouldAutoRetry = true
 				error = new Error("Context window exceeded. Click retry to truncate the conversation and try again.")
 			}
 		}
@@ -211,4 +211,23 @@ export class ApiClient
 			await ensureTaskDirectoryExists(task.getContext(), task.taskId),
 		)
 	}
+
+	private checkIsOpenRouterContextWindowError(error: any): boolean {
+		try {
+			return error.code === 400 && error.message?.includes("context length")
+		} catch (e: unknown) {
+			return false
+		}
+	}
+	
+	private checkIsAnthropicContextWindowError(response: any): boolean {
+		try {
+			return (
+				response?.error?.error?.type === "invalid_request_error" &&
+				response?.error?.error?.message?.includes("prompt is too long")
+			)
+		} catch (e: unknown) {
+			return false
+		}
+	}	
 }

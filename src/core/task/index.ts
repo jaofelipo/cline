@@ -68,10 +68,6 @@ import { addUserInstructions, SYSTEM_PROMPT } from "@core/prompts/system"
 import { getContextWindowInfo } from "@core/context/context-management/context-window-utils"
 import { FileContextTracker } from "@core/context/context-tracking/FileContextTracker"
 import { ModelContextTracker } from "@core/context/context-tracking/ModelContextTracker"
-import {
-	checkIsAnthropicContextWindowError,
-	checkIsOpenRouterContextWindowError,
-} from "@core/context/context-management/context-error-handling"
 import { ContextManager } from "@core/context/context-management/ContextManager"
 import { loadMcpDocumentation } from "@core/prompts/loadMcpDocumentation"
 import {
@@ -166,9 +162,9 @@ export class Task {
 	private didRejectTool = false
 	private didAlreadyUseTool = false
 	private didCompleteReadingStream = false
-	public didAutomaticallyRetryFailedApiRequest = false
+	
 
-	public apiClient:ApiClient = new ApiClient()
+	
 
 	constructor(
 		context: vscode.ExtensionContext,
@@ -3495,12 +3491,13 @@ export class Task {
 			this.didAlreadyUseTool = false
 			this.presentAssistantMessageLocked = false
 			this.presentAssistantMessageHasPendingUpdates = false
-			this.didAutomaticallyRetryFailedApiRequest = false
+			
 			await this.diffViewProvider.reset()
 			
 			const parser = new AssistantMessageParser() 
 
-			const stream = this.apiClient.attemptApiRequest(this, previousApiReqIndex) // yields only if the first chunk is successful, otherwise will allow the user to retry the request (most likely due to rate limit error, which gets thrown on the first chunk)
+			
+			const stream = new ApiClient().attemptApiRequest(this, previousApiReqIndex) // yields only if the first chunk is successful, otherwise will allow the user to retry the request (most likely due to rate limit error, which gets thrown on the first chunk)
 			let assistantMessage = ""
 			let reasoningMessage = ""
 			this.isStreaming = true
