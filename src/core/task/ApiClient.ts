@@ -53,74 +53,18 @@ export class ApiClient
 			const firstChunk = await iterator.next()
 			yield firstChunk.value
 			task.isWaitingForFirstChunk = false
-		} catch (error) {
-			const isOpenRouter = task.api instanceof OpenRouterHandler || task.api instanceof ClineHandler
-			const isAnthropic = task.api instanceof AnthropicHandler
-			const isOpenRouterContextWindowError = checkIsOpenRouterContextWindowError(error) && isOpenRouter
-			const isAnthropicContextWindowError = checkIsAnthropicContextWindowError(error) && isAnthropic
-
-			if (isAnthropic && isAnthropicContextWindowError && !task.didAutomaticallyRetryFailedApiRequest) {
-				task.conversationHistoryDeletedRange = task.contextManager.getNextTruncationRange(
-					task.apiConversationHistory,
-					task.conversationHistoryDeletedRange,
-					"quarter", // Force aggressive truncation
-				)
-				await task.saveClineMessagesAndUpdateHistory()
-				await task.contextManager.triggerApplyStandardContextTruncationNoticeChange(
-					Date.now(),
-					await ensureTaskDirectoryExists(task.getContext(), task.taskId),
-				)
-
-				task.didAutomaticallyRetryFailedApiRequest = true
-			} else if (isOpenRouter && !task.didAutomaticallyRetryFailedApiRequest) {
-				if (isOpenRouterContextWindowError) {
-					task.conversationHistoryDeletedRange = task.contextManager.getNextTruncationRange(
-						task.apiConversationHistory,
-						task.conversationHistoryDeletedRange,
-						"quarter", // Force aggressive truncation
-					)
-					await task.saveClineMessagesAndUpdateHistory()
-					await task.contextManager.triggerApplyStandardContextTruncationNoticeChange(
-						Date.now(),
-						await ensureTaskDirectoryExists(task.getContext(), task.taskId),
-					)
-				}
-
-				console.log("first chunk failed, waiting 1 second before retrying")
-				await delay(1000)
-				task.didAutomaticallyRetryFailedApiRequest = true
-			} else {
-				// request failed after retrying automatically once, ask user if they want to retry again
-				// note that this api_req_failed ask is unique in that we only present this option if the api hasn't streamed any content yet (ie it fails on the first chunk due), as it would allow them to hit a retry button. However if the api failed mid-stream, it could be in any arbitrary state where some tools may have executed, so that error is handled differently and requires cancelling the task entirely.
-
-				if (isOpenRouterContextWindowError || isAnthropicContextWindowError) {
-					const truncatedConversationHistory = task.contextManager.getTruncatedMessages(
-						task.apiConversationHistory,
-						task.conversationHistoryDeletedRange,
-					)
-
-					// If the conversation has more than 3 messages, we can truncate again. If not, then the conversation is bricked.
-					// ToDo: Allow the user to change their input if this is the case.
-					if (truncatedConversationHistory.length > 3) {
-						error = new Error("Context window exceeded. Click retry to truncate the conversation and try again.")
-						task.didAutomaticallyRetryFailedApiRequest = false
-					}
-				}
-
-				const errorMessage = task.formatErrorWithStatusCode(error)
-
-				const { response } = await task.ask("api_req_failed", errorMessage)
-
-				if (response !== "yesButtonClicked") {
-					// this will never happen since if noButtonClicked, we will clear current task, aborting this instance
-					throw new Error("API request failed")
-				}
-
-				await task.say("api_req_retried")
+		} 
+		catch (error) 
+		{
+			if (await this.handleFirstChunkError(error, task)) 
+			{
+				yield* this.attemptApiRequest(task, previousApiReqIndex)
+				return
 			}
-			// delegate generator output from the recursive call
-			yield* this.attemptApiRequest(task, previousApiReqIndex)
-			return
+			else 
+			{
+				throw new Error("API request failed")
+			}
 		}
 
 		// no error, so we can continue to yield all remaining chunks
@@ -204,5 +148,67 @@ export class ApiClient
 			systemPrompt += userInstructions
 		}
 		return systemPrompt
+	}
+
+	private async handleFirstChunkError(error: any, task: Task): Promise<boolean>
+	{
+		const isOpenRouter = task.api instanceof OpenRouterHandler || task.api instanceof ClineHandler
+		const isAnthropic = task.api instanceof AnthropicHandler
+	
+		const openRouterContextError = isOpenRouter && checkIsOpenRouterContextWindowError(error)
+		const anthropicContextError = isAnthropic && checkIsAnthropicContextWindowError(error)
+	
+		const shouldAutoRetry = !task.didAutomaticallyRetryFailedApiRequest
+
+		if ((openRouterContextError || anthropicContextError) && shouldAutoRetry) 
+		{
+			await this.truncateAndRetry(task)
+			task.didAutomaticallyRetryFailedApiRequest = true
+	
+			if (isOpenRouter) 
+				await delay(1000)
+			return true
+		}
+
+		// request failed after retrying automatically once, ask user if they want to retry again
+		// note that this api_req_failed ask is unique in that we only present this option if the api hasn't streamed any content yet
+		if (openRouterContextError || anthropicContextError) 
+		{
+			const truncated = task.contextManager.getTruncatedMessages(
+				task.apiConversationHistory,
+				task.conversationHistoryDeletedRange
+			)
+	
+			if (truncated.length > 3) 
+			{
+				task.didAutomaticallyRetryFailedApiRequest = false
+				error = new Error("Context window exceeded. Click retry to truncate the conversation and try again.")
+			}
+		}
+	
+		const errorMessage = task.formatErrorWithStatusCode(error)
+
+		const { response } = await task.ask("api_req_failed", errorMessage)
+
+		if (response !== "yesButtonClicked") // never happen, if noButtonClicked -> clear current task, aborting this instance
+			return false
+
+    	await task.say("api_req_retried")
+    	return true
+	}
+
+	private async truncateAndRetry(task: Task): Promise<void> 
+	{
+		task.conversationHistoryDeletedRange = task.contextManager.getNextTruncationRange(
+			task.apiConversationHistory,
+			task.conversationHistoryDeletedRange,
+			"quarter" // Force aggressive truncation
+		)
+	
+		await task.saveClineMessagesAndUpdateHistory()
+		await task.contextManager.triggerApplyStandardContextTruncationNoticeChange(
+			Date.now(),
+			await ensureTaskDirectoryExists(task.getContext(), task.taskId),
+		)
 	}
 }
