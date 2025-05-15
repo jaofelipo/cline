@@ -169,7 +169,9 @@ export class ContextManager
 			
 			if (totalTokens >= maxAllowedSize) // Most reliable way to know when we're close to hitting the context window.
 			{
-				const totalCharacters = this.calculateTotalChar(apiMessages)
+				//const deletedRange = this.deletedRange ? {start: 2, end: this.deletedRange[1]} : {start: 2, end:undefined}// count for first user-assistant message pair
+				const totalCharacters = this.countCharsExcludingRange(apiMessages, this.deletedRange ? this.deletedRange[1] + 1 : 2)
+
 				// we later check how many chars we trim to determine if we should still truncate history
 				const charactersSaved = this.findAndRegisterDuplicateFileContents(apiMessages, timestamp)
 
@@ -209,8 +211,6 @@ export class ContextManager
 	 */
 	public getNextTruncationRange(apiMessages: Anthropic.Messages.MessageParam[], keep: "none" | "lastTwo" | "half" | "quarter")
 	{
-		// We always keep the first user-assistant pairing, and truncate an even number of messages from there
-		const rangeStartIndex = 2 // index 0 and 1 are kept
 		const startOfRest = (this.deletedRange) ? this.deletedRange[1] + 1 : 2 // inclusive starting index
 
 		let messagesToRemove: number
@@ -245,7 +245,7 @@ export class ContextManager
 		if (apiMessages[rangeEndIndex].role !== "assistant") 
 			rangeEndIndex -= 1
 
-		this.deletedRange = [rangeStartIndex, rangeEndIndex] // this is an inclusive range that will be removed from the conversation history
+		this.deletedRange = [2, rangeEndIndex] // this is an inclusive range that will be removed from the conversation history
 		return this.deletedRange
 	}
 
@@ -259,63 +259,40 @@ export class ContextManager
 			return messages
 
 		const startFromIndex = this.deletedRange ? this.deletedRange[1] + 1 : 2
-		// runtime is linear in length of user messages, if expecting a limited number of alterations, could be more optimal to loop over alterations
+		const result = new Array( (messages.length - startFromIndex) + 2)
 
-		const firstChunk = messages.slice(0, 2) // get first user-assistant pair
-		const secondChunk = messages.slice(startFromIndex) // get remaining messages within context
-		const messagesToUpdate = [...firstChunk, ...secondChunk]
-
-		// we need the mapping from the local indices in messagesToUpdate to the global array of updates in this.contextHistoryUpdates
-		const originalIndices = [
-			...Array(2).keys(),
-			...Array(secondChunk.length)
-				.fill(0)
-				.map((_, i) => i + startFromIndex),
-		]
-
-		for (let i = 0; i < messagesToUpdate.length; i++) 
+		for (let i = 0; i < result.length; i++) 
 		{
-			const messageIndex = originalIndices[i]
+			const messageIndex = (i >= 2) ? startFromIndex + (i - 2) : i
 
+			let message = messages[messageIndex]
+			
 			const contextHistory = this.contextHistoryUpdates.get(messageIndex)
+
 			if (contextHistory)
 			{
-				// because we are altering this, we need a deep copy
-				messagesToUpdate[i] = cloneDeep(messagesToUpdate[i])
-
-				// Extract the map from the tuple
-				for (const [blockIndex, changes] of contextHistory.blockMap) 
+				message = cloneDeep(message) // because we are altering this, we need a deep copy
+				if (Array.isArray(message.content)) 
 				{
-					const message = messagesToUpdate[i]
-
-					if (Array.isArray(message.content)) 
+					for (const [blockIndex, changes] of contextHistory.blockMap)  // Extract the map from the tuple
 					{
 						const block = message.content[blockIndex]
-						if (block && block.type === "text") // only altering text for now
+						if (block?.type === "text") // only altering text for now
 							block.text = changes?.at(-1)?.content ?? block.text// apply the latest change
 					}
 				}
 			}
+			result[i] = message
 		}
-		return messagesToUpdate
+		return result
 	}
-
 
 	/**
 	 * removes all context history updates that occurred after the specified timestamp and saves to disk
 	 */
 	async truncateContextHistory(timestamp: number)
 	{
-		this.truncateContextHistoryAtTimestamp(this.contextHistoryUpdates, timestamp)
-		await this.saveContextHistory() // save the modified context history to disk
-	}
-
-	/**
-	 * alters the context history to remove all alterations after a given timestamp
-	 * removes the index if there are no alterations there anymore, both outer and inner indices
-	 */
-	private truncateContextHistoryAtTimestamp(contextHistory: ContextHistoryMap, timestamp: number)
-	{
+		const contextHistory: ContextHistoryMap = this.contextHistoryUpdates
 		for (const [messageIndex, { blockMap }] of contextHistory) 
 		{
 			const blockIndicesToDelete: number[] = [] // track which blockIndices to delete
@@ -328,7 +305,6 @@ export class ContextManager
 				{
 					cutoffIndex--
 				}
-
 				
 				if (cutoffIndex < changes.length - 1) // If we found updates to remove
 				{					
@@ -347,6 +323,8 @@ export class ContextManager
 			if (blockMap.size === 0)  // If inner map is now empty, remove the message index from outer map
 				contextHistory.delete(messageIndex)
 		}
+
+		await this.saveContextHistory() // save the modified context history to disk
 	}
 
 
@@ -369,9 +347,9 @@ export class ContextManager
 	{
 		if (!this.contextHistoryUpdates.has(1)) // first assistant message always at index 1
 		{			
-			const innerMap = new Map<number, ContextUpdate[]>()
-			innerMap.set(0, [{timestamp, content: formatResponse.contextTruncationNotice()}])
-			this.contextHistoryUpdates.set(1, { editType: EditType.UNDEFINED, blockMap: innerMap }) // EditType is undefined for first assistant message
+			const blockMap = new Map<number, ContextUpdate[]>()
+			blockMap.set(0, [{timestamp, content: formatResponse.contextTruncationNotice()}])
+			this.contextHistoryUpdates.set(1, { editType: EditType.UNDEFINED, blockMap }) // EditType is undefined for first assistant message
 			return true
 		}
 		return false	
@@ -480,42 +458,31 @@ export class ContextManager
 
 		return charactersSaved
 	}
-
 	
 	/**
 	 * count total characters in messages and total savings within this range
 	 */
-	private countCharactersInRange(apiMessages: Anthropic.Messages.MessageParam[], start: number, end: number)
+	private countCharsExcludingRange(apiMessages: Anthropic.Messages.MessageParam[], deleteFromIndex?:number)
 	{
 		let totalCharacters = 0
-		for (let i = start; i < end; i++) 
+		const deleteRange = {start: 2, end: deleteFromIndex ?? 2}
+		for (let i = 0; i < apiMessages.length; i++) 
 		{
 			const message = apiMessages[i] // looping over the outer indices of messages
-
-			if (message.content && Array.isArray(message.content))
+			if ((i < deleteRange.start || i >= deleteRange.end) && (message.content && Array.isArray(message.content)))
 			{
 				for (let blockIndex = 0; blockIndex < message.content.length; blockIndex++) 
 				{
 					const block = message.content[blockIndex] // looping over inner indices of messages
 
 					if (block.type === "text" && block.text) 
-						totalCharacters +=  (this.contextHistoryUpdates.getLastBlockUpdate(i, blockIndex)?.content ?? block.text).length
+						totalCharacters += this.contextHistoryUpdates.getLastBlockUpdate(i, blockIndex)?.content.length ?? block.text.length
 					else if (block.type === "image" && block.source && block.source.type === "base64" && block.source.data) 
 						totalCharacters += block.source.data.length
 				}
 			}
 		}
 		return totalCharacters
-	}
-
-	/**
-	 * count total character 
-	 */
-	private calculateTotalChar(apiMessages: Anthropic.Messages.MessageParam[])
-	{
-		const firstChunkResult = this.countCharactersInRange(apiMessages, 0, 2) // count for first user-assistant message pair
-		const secondChunkResult = this.countCharactersInRange(apiMessages, this.deletedRange ? this.deletedRange[1] + 1 : 2, apiMessages.length) // count the remaining in-range
-		return firstChunkResult + secondChunkResult
 	}
 }
 

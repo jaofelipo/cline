@@ -2902,14 +2902,14 @@ export class Task {
 							break
 						}
 					}
-					case "condense": {
-						const context: string | undefined = block.params.context
-						try {
+					case "condense": {						
+						try 
+						{
 							if (block.partial) {
-								await this.ask("condense", removeClosingTag("context", context), block.partial).catch(() => {})
+								await this.ask("condense", removeClosingTag("context", block.params.context), block.partial).catch(() => {})
 								break
 							} else {
-								if (!context) {
+								if (!block.params.context) {
 									this.consecutiveMistakeCount++
 									pushToolResult(await this.sayAndCreateMissingParamError("condense", "context"))
 									await this.saveCheckpoint()
@@ -2924,7 +2924,7 @@ export class Task {
 									})
 								}
 
-								const { text, images } = await this.ask("condense", context, false)
+								const { text, images } = await this.ask("condense", block.params.context, false)
 
 								// If the user provided a response, treat it as feedback
 								if (text || images?.length) {
@@ -2939,20 +2939,19 @@ export class Task {
 									// If no response, the user accepted the condensed version
 									pushToolResult(formatResponse.toolResult(formatResponse.condense()))
 
-									const lastMessage = this.apiConversationHistory[this.apiConversationHistory.length - 1]
-									const summaryAlreadyAppended = lastMessage && lastMessage.role === "assistant"
-									const keepStrategy = summaryAlreadyAppended ? "lastTwo" : "none"
+									const lastMessage = this.apiConversationHistory.at(-1)//[this.apiConversationHistory.length - 1]
 
 									// clear the context history at this point in time
-									 this.contextManager.getNextTruncationRange(this.apiConversationHistory, keepStrategy)
+									this.contextManager.getNextTruncationRange(this.apiConversationHistory, (lastMessage?.role === "assistant") ? "lastTwo" : "none")
 									await this.saveClineMessagesAndUpdateHistory()
-									await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(
-										Date.now())
+									await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(Date.now())
 								}
 								await this.saveCheckpoint()
 								break
 							}
-						} catch (error) {
+						} 
+						catch (error) 
+						{
 							await handleError("condensing context window", error)
 							await this.saveCheckpoint()
 							break
