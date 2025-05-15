@@ -1,7 +1,5 @@
 export type AssistantMessageContent = TextContent | ToolUse
 
-export { parseAssistantMessage } from "./parse-assistant-message"
-
 export interface TextContent {
 	type: "text"
 	content: string
@@ -31,6 +29,8 @@ export const toolUseNames = [
 // Converts array of tool call names into a union type ("execute_command" | "read_file" | ...)
 export type ToolUseName = (typeof toolUseNames)[number]
 
+export const toolUseNamesSet = new Set<string>(toolUseNames)
+
 export const toolParamNames = [
 	"command",
 	"requires_approval",
@@ -56,6 +56,8 @@ export const toolParamNames = [
 ] as const
 
 export type ToolParamName = (typeof toolParamNames)[number]
+
+export const toolParamNamesSet = new Set<ToolParamName>(toolParamNames)
 
 export interface ToolUse {
 	type: "tool_use"

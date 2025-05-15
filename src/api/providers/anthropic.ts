@@ -221,4 +221,16 @@ export class AnthropicHandler implements ApiHandler {
 			info: anthropicModels[anthropicDefaultModelId],
 		}
 	}
+
+	isContextWindowError(response:any):boolean
+	{
+		try {
+			return (
+				response?.error?.error?.type === "invalid_request_error" &&
+				response?.error?.error?.message?.includes("prompt is too long")
+			)
+		} catch (e: unknown) {
+			return false
+		}
+	}
 }

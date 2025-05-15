@@ -54,7 +54,7 @@ describe("FileContextTracker", () => {
 
 		// Create tracker instance
 		taskId = "test-task-id"
-		tracker = new FileContextTracker(mockContext, taskId)
+		tracker = new FileContextTracker(mockContext.globalStorageUri.fsPath, taskId)
 	})
 
 	afterEach(() => {

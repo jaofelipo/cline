@@ -594,4 +594,10 @@ export class GeminiHandler implements ApiHandler {
 
 		return Math.ceil(totalChars / 4)
 	}
+
+	isContextWindowError(error:any):boolean
+	{
+		return false
+	}
+
 }

@@ -53,4 +53,9 @@ export class LmStudioHandler implements ApiHandler {
 			info: openAiModelInfoSaneDefaults,
 		}
 	}
+
+	isContextWindowError(error:any):boolean
+	{
+		return false
+	}
 }
