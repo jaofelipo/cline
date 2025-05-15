@@ -11,6 +11,7 @@ import { cwd, Task } from "."
 import { OpenRouterHandler } from "@/api/providers/openrouter"
 import { ClineHandler } from "@/api/providers/cline"
 import { setTimeout as delay } from "node:timers/promises"
+import { getContextWindowInfo } from "../context/context-management/context-window-utils"
 
 export class ApiClient 
 {
@@ -32,19 +33,14 @@ export class ApiClient
 
 		const previousRequest = (previousApiReqIndex >= 0) ? task.clineMessages[previousApiReqIndex] : undefined
 
-		const contextMetadata = await task.contextManager.getNewContextMessagesAndMetadata(
-			task.apiConversationHistory,
-			task.api,
-			task.conversationHistoryDeletedRange,
-			previousRequest
-		)
-
-		if (contextMetadata.updatedConversationHistoryDeletedRange) {
-			task.conversationHistoryDeletedRange = contextMetadata.conversationHistoryDeletedRange
+		const truncated = await task.contextManager.getNewDeletedRange(task.apiConversationHistory, getContextWindowInfo(task.api).maxAllowedSize, previousRequest)
+		
+		if (truncated) 
 			await task.saveClineMessagesAndUpdateHistory() // saves task history item which we use to keep track of conversation history deleted range
-		}
 
-		let stream = task.api.createMessage(systemPrompt, contextMetadata.truncatedConversationHistory)
+		const truncatedConversationHistory = task.contextManager.getTruncatedMessages(task.apiConversationHistory)
+
+		let stream = task.api.createMessage(systemPrompt, truncatedConversationHistory)
 
 		const iterator = stream[Symbol.asyncIterator]()
 
@@ -169,10 +165,7 @@ export class ApiClient
 		// note that this api_req_failed ask is unique in that we only present this option if the api hasn't streamed any content yet
 		if (contextError) 
 		{
-			const truncated = task.contextManager.getTruncatedMessages(
-				task.apiConversationHistory,
-				task.conversationHistoryDeletedRange
-			)
+			const truncated = task.contextManager.getTruncatedMessages(task.apiConversationHistory)
 	
 			if (truncated.length > 3) 
 			{
@@ -194,12 +187,7 @@ export class ApiClient
 
 	private async truncateAndRetry(task: Task): Promise<void> 
 	{
-		task.conversationHistoryDeletedRange = task.contextManager.getNextTruncationRange(
-			task.apiConversationHistory,
-			task.conversationHistoryDeletedRange,
-			"quarter" // Force aggressive truncation
-		)
-	
+		task.contextManager.getNextTruncationRange(task.apiConversationHistory,	"quarter") // Force aggressive truncation
 		await task.saveClineMessagesAndUpdateHistory()
 		await task.contextManager.triggerApplyStandardContextTruncationNoticeChange(Date.now())
 	}

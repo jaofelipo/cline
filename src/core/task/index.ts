@@ -130,7 +130,7 @@ export class Task {
 	private diffViewProvider: DiffViewProvider
 	private checkpointTracker?: CheckpointTracker
 	checkpointTrackerErrorMessage?: string
-	conversationHistoryDeletedRange?: [number, number]
+	
 	isInitialized = false
 	isAwaitingPlanResponse = false
 	didRespondToPlanAskBySwitchingMode = false
@@ -199,14 +199,13 @@ export class Task {
 		// Initialize taskId first
 		if (historyItem) {
 			this.taskId = historyItem.id
-			this.conversationHistoryDeletedRange = historyItem.conversationHistoryDeletedRange
 		} else if (task || images) {
 			this.taskId = Date.now().toString()
 		} else {
 			throw new Error("Either historyItem or task/images must be provided")
 		}
 
-		this.contextManager = new ContextManager(this.contextBaseDir, this.taskId)
+		this.contextManager = new ContextManager(this.contextBaseDir, this.taskId, historyItem?.conversationHistoryDeletedRange)
 		// Initialize file context tracker
 		this.fileContextTracker = new FileContextTracker(this.contextBaseDir, this.taskId)
 		this.modelContextTracker = new ModelContextTracker(this.contextBaseDir, this.taskId)
@@ -266,7 +265,7 @@ export class Task {
 		// these values allow us to reconstruct the conversation history at the time this cline message was created
 		// it's important that apiConversationHistory is initialized before we add cline messages
 		message.conversationHistoryIndex = this.apiConversationHistory.length - 1 // NOTE: this is the index of the last added message which is the user message, and once the clinemessages have been presented we update the apiconversationhistory with the completed assistant message. This means when resetting to a message, we need to +1 this index to get the correct assistant message that this tool use corresponds to
-		message.conversationHistoryDeletedRange = this.conversationHistoryDeletedRange
+		message.conversationHistoryDeletedRange = this.contextManager.deletedRange
 		this.clineMessages.push(message)
 		await this.saveClineMessagesAndUpdateHistory()
 	}
@@ -307,7 +306,7 @@ export class Task {
 				totalCost: apiMetrics.totalCost,
 				size: taskDirSize,
 				shadowGitConfigWorkTree: await this.checkpointTracker?.getShadowGitConfigWorkTree(),
-				conversationHistoryDeletedRange: this.conversationHistoryDeletedRange,
+				conversationHistoryDeletedRange: this.contextManager.deletedRange,
 			})
 		} catch (error) {
 			console.error("Failed to save cline messages:", error)
@@ -369,7 +368,7 @@ export class Task {
 			switch (restoreType) {
 				case "task":
 				case "taskAndWorkspace":
-					this.conversationHistoryDeletedRange = message.conversationHistoryDeletedRange
+					this.contextManager.deletedRange = message.conversationHistoryDeletedRange
 					const newConversationHistory = this.apiConversationHistory.slice(
 						0,
 						(message.conversationHistoryIndex || 0) + 2,
@@ -2945,11 +2944,7 @@ export class Task {
 									const keepStrategy = summaryAlreadyAppended ? "lastTwo" : "none"
 
 									// clear the context history at this point in time
-									this.conversationHistoryDeletedRange = this.contextManager.getNextTruncationRange(
-										this.apiConversationHistory,
-										this.conversationHistoryDeletedRange,
-										keepStrategy,
-									)
+									 this.contextManager.getNextTruncationRange(this.apiConversationHistory, keepStrategy)
 									await this.saveClineMessagesAndUpdateHistory()
 									await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(
 										Date.now())
@@ -3387,7 +3382,7 @@ export class Task {
 			content: userContent,
 		})
 
-		telemetryService.captureConversationTurnEvent(this.taskId, currentProviderId, this.api.getModel().id, "user", true)
+		telemetryService.captureConversationTurnEvent(this.taskId, currentProviderId, this.api.getModel().id, "user")
 
 		// since we sent off a placeholder api_req_started message to update the webview while waiting to actually start the API request (to load potential details for example), we need to update the text of that message
 		const lastApiReqIndex = findLastIndex(this.clineMessages, (m) => m.say === "api_req_started")
@@ -3464,13 +3459,7 @@ export class Task {
 				updateApiReqMsg(cancelReason, streamingFailedMessage)
 				await this.saveClineMessagesAndUpdateHistory()
 
-				telemetryService.captureConversationTurnEvent(
-					this.taskId,
-					currentProviderId,
-					this.api.getModel().id,
-					"assistant",
-					true,
-				)
+				telemetryService.captureConversationTurnEvent(this.taskId, currentProviderId, this.api.getModel().id, "assistant")
 
 				// signals to provider that it can retrieve the saved messages from disk, as abortTask can not be awaited on in nature
 				this.didFinishAbortingStream = true
@@ -3617,13 +3606,7 @@ export class Task {
 			// need to save assistant responses to file before proceeding to tool use since user can exit at any moment and we wouldn't be able to save the assistant's response
 			let didEndLoop = false
 			if (assistantMessage.length > 0) {
-				telemetryService.captureConversationTurnEvent(
-					this.taskId,
-					currentProviderId,
-					this.api.getModel().id,
-					"assistant",
-					true,
-				)
+				telemetryService.captureConversationTurnEvent(this.taskId, currentProviderId, this.api.getModel().id, "assistant")
 
 				await this.addToApiConversationHistory({
 					role: "assistant",
