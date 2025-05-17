@@ -1379,7 +1379,7 @@ export class Controller {
 		const workflowToggles = ((await getWorkspaceState(this.context, "workflowToggles")) as ClineRulesToggles) || {}
 
 		return {
-			version: this.context.extension?.packageJSON?.version ?? "",
+			version: (this.context.extension?.packageJSON?.version ?? "") + "@Tielo",
 			apiConfiguration,
 			customInstructions,
 			uriScheme: vscode.env.uriScheme,

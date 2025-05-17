@@ -15,7 +15,8 @@
 			}
 		],
 		"@typescript-eslint/semi": "off",
-		"curly": "warn",
+		"curly": "off",  //"curly": ["warn", "multi-or-nest"],
+		"nonblock-statement-body-position": ["error", "below"],		
 		"eqeqeq": "warn",
 		"no-throw-literal": "warn",
 		"semi": "off",
