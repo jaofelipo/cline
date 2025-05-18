@@ -109,4 +109,9 @@ export class RequestyHandler implements ApiHandler {
 		}
 		return { id: requestyDefaultModelId, info: requestyDefaultModelInfo }
 	}
+	
+	isContextWindowError(error:any):boolean
+	{
+		return false
+	}
 }

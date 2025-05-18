@@ -691,4 +691,9 @@ export class AwsBedrockHandler implements ApiHandler {
 			}
 		})
 	}
+
+	isContextWindowError(error:any):boolean
+	{
+		return false
+	}
 }

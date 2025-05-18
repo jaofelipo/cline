@@ -80,4 +80,9 @@ export class XAIHandler implements ApiHandler {
 			info: xaiModels[xaiDefaultModelId],
 		}
 	}
+	
+	isContextWindowError(error:any):boolean
+	{
+		return false
+	}
 }

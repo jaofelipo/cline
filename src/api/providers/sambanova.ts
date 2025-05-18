@@ -72,4 +72,9 @@ export class SambanovaHandler implements ApiHandler {
 			info: sambanovaModels[sambanovaDefaultModelId],
 		}
 	}
+	
+	isContextWindowError(error:any):boolean
+	{
+		return false
+	}
 }

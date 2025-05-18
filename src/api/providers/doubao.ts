@@ -65,4 +65,9 @@ export class DoubaoHandler implements ApiHandler {
 			}
 		}
 	}
+
+	isContextWindowError(error:any):boolean
+	{
+		return false
+	}
 }

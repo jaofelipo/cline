@@ -122,4 +122,10 @@ export class OpenAiNativeHandler implements ApiHandler {
 			info: openAiNativeModels[openAiNativeDefaultModelId],
 		}
 	}
+
+	
+	isContextWindowError(error:any):boolean
+	{
+		return false
+	}
 }

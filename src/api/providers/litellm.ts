@@ -172,4 +172,9 @@ export class LiteLlmHandler implements ApiHandler {
 			info: this.options.liteLlmModelInfo || liteLlmModelInfoSaneDefaults,
 		}
 	}
+
+	isContextWindowError(error:any):boolean
+	{
+		return false
+	}
 }

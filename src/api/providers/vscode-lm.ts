@@ -632,4 +632,9 @@ export class VsCodeLmHandler implements ApiHandler, SingleCompletionHandler {
 			throw error
 		}
 	}
+
+	isContextWindowError(error:any):boolean
+	{
+		return false
+	}
 }

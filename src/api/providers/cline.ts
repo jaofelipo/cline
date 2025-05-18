@@ -129,4 +129,13 @@ export class ClineHandler implements ApiHandler {
 		}
 		return { id: openRouterDefaultModelId, info: openRouterDefaultModelInfo }
 	}
+
+	isContextWindowError(error:any):boolean
+	{
+		try {
+			return error.code === 400 && error.message?.includes("context length")
+		} catch (e: unknown) {
+			return false
+		}
+	}
 }

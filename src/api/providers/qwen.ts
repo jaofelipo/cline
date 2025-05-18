@@ -96,4 +96,9 @@ export class QwenHandler implements ApiHandler {
 			}
 		}
 	}
+	
+	isContextWindowError(error:any):boolean
+	{
+		return false
+	}
 }

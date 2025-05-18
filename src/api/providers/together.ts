@@ -72,4 +72,9 @@ export class TogetherHandler implements ApiHandler {
 			info: openAiModelInfoSaneDefaults,
 		}
 	}
+	
+	isContextWindowError(error:any):boolean
+	{
+		return false
+	}
 }

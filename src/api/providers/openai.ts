@@ -109,4 +109,9 @@ export class OpenAiHandler implements ApiHandler {
 			info: this.options.openAiModelInfo ?? openAiModelInfoSaneDefaults,
 		}
 	}
+	
+	isContextWindowError(error:any):boolean
+	{
+		return false
+	}
 }

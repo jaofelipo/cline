@@ -232,4 +232,9 @@ export class VertexHandler implements ApiHandler {
 			info: vertexModels[vertexDefaultModelId],
 		}
 	}
+	
+	isContextWindowError(error:any):boolean
+	{
+		return false
+	}
 }
