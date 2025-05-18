@@ -28,6 +28,7 @@ export interface ApiHandler {
 	createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream
 	getModel(): { id: string; info: ModelInfo }
 	getApiStreamUsage?(): Promise<ApiStreamUsageChunk | undefined>
+	isContextWindowError(error:any):boolean
 }
 
 export interface SingleCompletionHandler {

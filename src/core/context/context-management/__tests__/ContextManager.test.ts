@@ -27,38 +27,44 @@ describe("ContextManager", () => {
 		let contextManager: ContextManager
 
 		beforeEach(() => {
-			contextManager = new ContextManager()
+			contextManager = new ContextManager("", "")
 		})
 
 		it("first truncation with half keep", () => {
 			const messages = createMessages(11)
-			const result = contextManager.getNextTruncationRange(messages, undefined, "half")
+			contextManager.deletedRange = undefined
+			const result = contextManager.getNextTruncationRange(messages, "half")
 
 			expect(result).to.deep.equal([2, 5])
 		})
 
 		it("first truncation with quarter keep", () => {
 			const messages = createMessages(11)
-			const result = contextManager.getNextTruncationRange(messages, undefined, "quarter")
+			contextManager.deletedRange = undefined
+			const result = contextManager.getNextTruncationRange(messages, "quarter")
 
 			expect(result).to.deep.equal([2, 7])
 		})
 
 		it("sequential truncation with half keep", () => {
 			const messages = createMessages(21)
-			const firstRange = contextManager.getNextTruncationRange(messages, undefined, "half")
+			contextManager.deletedRange = undefined
+			const firstRange = contextManager.getNextTruncationRange(messages, "half")
 			expect(firstRange).to.deep.equal([2, 9])
 
 			// Pass the previous range for sequential truncation
-			const secondRange = contextManager.getNextTruncationRange(messages, firstRange, "half")
+			contextManager.deletedRange = firstRange
+			const secondRange = contextManager.getNextTruncationRange(messages, "half")
 			expect(secondRange).to.deep.equal([2, 13])
 		})
 
 		it("sequential truncation with quarter keep", () => {
 			const messages = createMessages(41)
-			const firstRange = contextManager.getNextTruncationRange(messages, undefined, "quarter")
+			contextManager.deletedRange = undefined
+			const firstRange = contextManager.getNextTruncationRange(messages, "quarter")
 
-			const secondRange = contextManager.getNextTruncationRange(messages, firstRange, "quarter")
+			contextManager.deletedRange = firstRange
+			const secondRange = contextManager.getNextTruncationRange(messages, "quarter")
 
 			expect(secondRange[0]).to.equal(2)
 			expect(secondRange[1]).to.be.greaterThan(firstRange[1])
@@ -66,7 +72,8 @@ describe("ContextManager", () => {
 
 		it("ensures the last message in range is a user message", () => {
 			const messages = createMessages(14)
-			const result = contextManager.getNextTruncationRange(messages, undefined, "half")
+			contextManager.deletedRange = undefined
+			const result = contextManager.getNextTruncationRange(messages, "half")
 
 			// Check if the message at the end of range is an assistant message
 			const lastRemovedMessage = messages[result[1]]
@@ -79,14 +86,16 @@ describe("ContextManager", () => {
 
 		it("handles small message arrays", () => {
 			const messages = createMessages(3)
-			const result = contextManager.getNextTruncationRange(messages, undefined, "half")
+			contextManager.deletedRange = undefined
+			const result = contextManager.getNextTruncationRange(messages, "half")
 
 			expect(result).to.deep.equal([2, 1])
 		})
 
 		it("preserves the message structure when truncating", () => {
 			const messages = createMessages(20)
-			const result = contextManager.getNextTruncationRange(messages, undefined, "half")
+			contextManager.deletedRange = undefined
+			const result = contextManager.getNextTruncationRange(messages, "half")
 
 			// Get messages after removing the range
 			const effectiveMessages = [...messages.slice(0, result[0]), ...messages.slice(result[1] + 1)]
@@ -104,21 +113,22 @@ describe("ContextManager", () => {
 		let contextManager: ContextManager
 
 		beforeEach(() => {
-			contextManager = new ContextManager()
+			contextManager = new ContextManager("", "")
 		})
 
 		it("returns original messages when no range is provided", () => {
 			const messages = createMessages(3)
 
-			const result = contextManager.getTruncatedMessages(messages, undefined)
+			contextManager.deletedRange = undefined
+			const result = contextManager.getTruncatedMessages(messages)
 			expect(result).to.deep.equal(messages)
 		})
 
 		it("correctly removes messages in the specified range", () => {
 			const messages = createMessages(5)
 
-			const range: [number, number] = [1, 3]
-			const result = contextManager.getTruncatedMessages(messages, range)
+			contextManager.deletedRange = [1, 3]
+			const result = contextManager.getTruncatedMessages(messages)
 
 			expect(result).to.have.lengthOf(3)
 			expect(result[0]).to.deep.equal(messages[0])
@@ -129,8 +139,8 @@ describe("ContextManager", () => {
 		it("works with a range that starts at the first message after task", () => {
 			const messages = createMessages(4)
 
-			const range: [number, number] = [1, 2]
-			const result = contextManager.getTruncatedMessages(messages, range)
+			contextManager.deletedRange = [1, 2]
+			const result = contextManager.getTruncatedMessages(messages)
 
 			expect(result).to.have.lengthOf(3)
 			expect(result[0]).to.deep.equal(messages[0])
@@ -141,8 +151,8 @@ describe("ContextManager", () => {
 		it("correctly handles removing a range while preserving alternation pattern", () => {
 			const messages = createMessages(5)
 
-			const range: [number, number] = [2, 3]
-			const result = contextManager.getTruncatedMessages(messages, range)
+			contextManager.deletedRange = [2, 3]
+			const result = contextManager.getTruncatedMessages(messages)
 
 			expect(result).to.have.lengthOf(3)
 			expect(result[0]).to.deep.equal(messages[0])

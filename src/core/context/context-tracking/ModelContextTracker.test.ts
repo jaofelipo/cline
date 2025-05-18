@@ -30,7 +30,7 @@ describe("ModelContextTracker", () => {
 
 		// Create tracker instance
 		taskId = "test-task-id"
-		tracker = new ModelContextTracker(mockContext, taskId)
+		tracker = new ModelContextTracker(mockContext.globalStorageUri.fsPath, taskId)
 	})
 
 	afterEach(() => {

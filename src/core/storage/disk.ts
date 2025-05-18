@@ -58,8 +58,8 @@ export async function getDocumentsPath(): Promise<string> {
 	return path.join(os.homedir(), "Documents")
 }
 
-export async function ensureTaskDirectoryExists(context: vscode.ExtensionContext, taskId: string): Promise<string> {
-	const globalStoragePath = context.globalStorageUri.fsPath
+export async function ensureTaskDirectoryExists(globalStoragePath:string, taskId: string): Promise<string> 
+{
 	const taskDir = path.join(globalStoragePath, "tasks", taskId)
 	await fs.mkdir(taskDir, { recursive: true })
 	return taskDir
@@ -87,17 +87,17 @@ export async function ensureMcpServersDirectoryExists(): Promise<string> {
 	return mcpServersDir
 }
 
-export async function ensureSettingsDirectoryExists(context: vscode.ExtensionContext): Promise<string> {
-	const settingsDir = path.join(context.globalStorageUri.fsPath, "settings")
+export async function ensureSettingsDirectoryExists(baseDir:string): Promise<string> {
+	const settingsDir = path.join(baseDir, "settings")
 	await fs.mkdir(settingsDir, { recursive: true })
 	return settingsDir
 }
 
 export async function getSavedApiConversationHistory(
-	context: vscode.ExtensionContext,
+	baseDir:string,
 	taskId: string,
 ): Promise<Anthropic.MessageParam[]> {
-	const filePath = path.join(await ensureTaskDirectoryExists(context, taskId), GlobalFileNames.apiConversationHistory)
+	const filePath = path.join(await ensureTaskDirectoryExists(baseDir, taskId), GlobalFileNames.apiConversationHistory)
 	const fileExists = await fileExistsAtPath(filePath)
 	if (fileExists) {
 		return JSON.parse(await fs.readFile(filePath, "utf8"))
@@ -106,12 +106,12 @@ export async function getSavedApiConversationHistory(
 }
 
 export async function saveApiConversationHistory(
-	context: vscode.ExtensionContext,
+	baseDir:string,
 	taskId: string,
 	apiConversationHistory: Anthropic.MessageParam[],
 ) {
 	try {
-		const filePath = path.join(await ensureTaskDirectoryExists(context, taskId), GlobalFileNames.apiConversationHistory)
+		const filePath = path.join(await ensureTaskDirectoryExists(baseDir, taskId), GlobalFileNames.apiConversationHistory)
 		await fs.writeFile(filePath, JSON.stringify(apiConversationHistory))
 	} catch (error) {
 		// in the off chance this fails, we don't want to stop the task
@@ -119,13 +119,13 @@ export async function saveApiConversationHistory(
 	}
 }
 
-export async function getSavedClineMessages(context: vscode.ExtensionContext, taskId: string): Promise<ClineMessage[]> {
-	const filePath = path.join(await ensureTaskDirectoryExists(context, taskId), GlobalFileNames.uiMessages)
+export async function getSavedClineMessages(baseDir:string, taskId: string): Promise<ClineMessage[]> {
+	const filePath = path.join(await ensureTaskDirectoryExists(baseDir, taskId), GlobalFileNames.uiMessages)
 	if (await fileExistsAtPath(filePath)) {
 		return JSON.parse(await fs.readFile(filePath, "utf8"))
 	} else {
 		// check old location
-		const oldPath = path.join(await ensureTaskDirectoryExists(context, taskId), "claude_messages.json")
+		const oldPath = path.join(await ensureTaskDirectoryExists(baseDir, taskId), "claude_messages.json")
 		if (await fileExistsAtPath(oldPath)) {
 			const data = JSON.parse(await fs.readFile(oldPath, "utf8"))
 			await fs.unlink(oldPath) // remove old file
@@ -135,9 +135,9 @@ export async function getSavedClineMessages(context: vscode.ExtensionContext, ta
 	return []
 }
 
-export async function saveClineMessages(context: vscode.ExtensionContext, taskId: string, uiMessages: ClineMessage[]) {
+export async function saveClineMessages(baseDir:string, taskId: string, uiMessages: ClineMessage[]) {
 	try {
-		const taskDir = await ensureTaskDirectoryExists(context, taskId)
+		const taskDir = await ensureTaskDirectoryExists(baseDir, taskId)
 		const filePath = path.join(taskDir, GlobalFileNames.uiMessages)
 		await fs.writeFile(filePath, JSON.stringify(uiMessages))
 	} catch (error) {
@@ -145,8 +145,8 @@ export async function saveClineMessages(context: vscode.ExtensionContext, taskId
 	}
 }
 
-export async function getTaskMetadata(context: vscode.ExtensionContext, taskId: string): Promise<TaskMetadata> {
-	const filePath = path.join(await ensureTaskDirectoryExists(context, taskId), GlobalFileNames.taskMetadata)
+export async function getTaskMetadata(baseDir:string, taskId: string): Promise<TaskMetadata> {
+	const filePath = path.join(await ensureTaskDirectoryExists(baseDir, taskId), GlobalFileNames.taskMetadata)
 	try {
 		if (await fileExistsAtPath(filePath)) {
 			return JSON.parse(await fs.readFile(filePath, "utf8"))
@@ -157,9 +157,9 @@ export async function getTaskMetadata(context: vscode.ExtensionContext, taskId: 
 	return { files_in_context: [], model_usage: [] }
 }
 
-export async function saveTaskMetadata(context: vscode.ExtensionContext, taskId: string, metadata: TaskMetadata) {
+export async function saveTaskMetadata(baseDir:string, taskId: string, metadata: TaskMetadata) {
 	try {
-		const taskDir = await ensureTaskDirectoryExists(context, taskId)
+		const taskDir = await ensureTaskDirectoryExists(baseDir, taskId)
 		const filePath = path.join(taskDir, GlobalFileNames.taskMetadata)
 		await fs.writeFile(filePath, JSON.stringify(metadata, null, 2))
 	} catch (error) {

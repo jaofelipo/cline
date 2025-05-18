@@ -16,7 +16,7 @@ import type { FileMetadataEntry } from "./ContextTrackerTypes"
 // If the full contents of a file are pass to Cline via a tool, mention, or edit, the file is marked as active.
 // If a file is modified outside of Cline, we detect and track this change to prevent stale context.
 export class FileContextTracker {
-	private context: vscode.ExtensionContext
+	private baseDir: string
 	readonly taskId: string
 
 	// File tracking and watching
@@ -24,8 +24,8 @@ export class FileContextTracker {
 	private recentlyModifiedFiles = new Set<string>()
 	private recentlyEditedByCline = new Set<string>()
 
-	constructor(context: vscode.ExtensionContext, taskId: string) {
-		this.context = context
+	constructor(baseDir: string, taskId: string) {
+		this.baseDir = baseDir
 		this.taskId = taskId
 	}
 
@@ -80,7 +80,7 @@ export class FileContextTracker {
 			}
 
 			// Add file to metadata
-			await this.addFileToFileContextTracker(this.context, this.taskId, filePath, operation)
+			await this.addFileToFileContextTracker(this.baseDir, this.taskId, filePath, operation)
 
 			// Set up file watcher for this file
 			await this.setupFileWatcher(filePath)
@@ -93,13 +93,13 @@ export class FileContextTracker {
 	// This handles the business logic of determining if the file is new, stale, or active.
 	// It also updates the metadata with the latest read/edit dates.
 	async addFileToFileContextTracker(
-		context: vscode.ExtensionContext,
+		baseDir: string,
 		taskId: string,
 		filePath: string,
 		source: FileMetadataEntry["record_source"],
 	) {
 		try {
-			const metadata = await getTaskMetadata(context, taskId)
+			const metadata = await getTaskMetadata(baseDir, taskId)
 			const now = Date.now()
 
 			// Mark existing entries for this file as stale
@@ -148,7 +148,7 @@ export class FileContextTracker {
 			}
 
 			metadata.files_in_context.push(newEntry)
-			await saveTaskMetadata(context, taskId, metadata)
+			await saveTaskMetadata(baseDir, taskId, metadata)
 		} catch (error) {
 			console.error("Failed to add file to metadata:", error)
 		}
