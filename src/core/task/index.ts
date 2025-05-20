@@ -60,10 +60,9 @@ import { constructNewFileContent } from "@core/assistant-message/diff"
 import { ClineIgnoreController } from "@core/ignore/ClineIgnoreController"
 import { parseMentions } from "@core/mentions"
 import { formatResponse } from "@core/prompts/responses"
-import { getContextWindowInfo } from "@core/context/context-management/context-window-utils"
 import { FileContextTracker } from "@core/context/context-tracking/FileContextTracker"
 import { ModelContextTracker } from "@core/context/context-tracking/ModelContextTracker"
-import { ContextManager } from "@core/context/context-management/ContextManager"
+import { ContextManager, getContextWindowInfo } from "@/core/context/ContextManager"
 import { loadMcpDocumentation } from "@core/prompts/loadMcpDocumentation"
 import {
 	ensureRulesDirectoryExists,
@@ -4096,7 +4095,7 @@ export class Task {
 		}
 
 		// Add context window usage information
-		const { contextWindow, maxAllowedSize } = getContextWindowInfo(this.api)
+		const { contextWindow } = getContextWindowInfo(this.api)
 
 		// Get the token count from the most recent API request to accurately reflect context management
 		const getTotalTokensFromApiReqMessage = (msg: ClineMessage) => {

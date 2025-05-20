@@ -1,4 +1,4 @@
-import { ContextManager } from "../ContextManager"
+import { ContextManager } from "@/core/context/ContextManager"
 import { Anthropic } from "@anthropic-ai/sdk"
 import { expect } from "chai"
 

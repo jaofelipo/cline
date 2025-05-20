@@ -11,7 +11,7 @@ import { cwd, Task } from "."
 import { OpenRouterHandler } from "@/api/providers/openrouter"
 import { ClineHandler } from "@/api/providers/cline"
 import { setTimeout as delay } from "node:timers/promises"
-import { getContextWindowInfo } from "../context/context-management/context-window-utils"
+import { getContextWindowInfo } from "../context/ContextManager"
 
 export class ApiClient 
 {
