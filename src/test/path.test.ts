@@ -1,8 +1,8 @@
+import { arePathsEqual, getReadablePath } from "@/utils/path"
 import { describe, it } from "mocha"
 import * as os from "os"
 import * as path from "path"
 import "should"
-import { arePathsEqual, getReadablePath } from "./path"
 
 describe("Path Utilities", () => {
 	describe("arePathsEqual", () => {

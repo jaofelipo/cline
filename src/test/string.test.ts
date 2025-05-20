@@ -1,6 +1,6 @@
+import { fixModelHtmlEscaping, removeInvalidChars } from "@/utils/string"
 import { describe, it } from "mocha"
 import "should"
-import { fixModelHtmlEscaping, removeInvalidChars } from "./string"
 
 describe("fixModelHtmlEscaping", () => {
 	it("should convert &gt; to >", () => {

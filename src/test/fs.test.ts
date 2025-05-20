@@ -1,9 +1,9 @@
+import { createDirectoriesForFile, fileExistsAtPath, isDirectory, readDirectory } from "@/utils/fs"
 import * as fs from "fs/promises"
 import { after, describe, it } from "mocha"
 import * as os from "os"
 import * as path from "path"
 import "should"
-import { createDirectoriesForFile, fileExistsAtPath, isDirectory, readDirectory } from "./fs"
 
 describe("Filesystem Utilities", () => {
 	const tmpDir = path.join(os.tmpdir(), "cline-test-" + Math.random().toString(36).slice(2))

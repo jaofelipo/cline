@@ -1,4 +1,4 @@
-import { constructNewFileContent as cnfc2 } from "./diff"
+import { constructNewFileContent as cnfc2 } from "../core/assistant-message/diff"
 import { describe, it } from "mocha"
 import { expect } from "chai"
 
