@@ -3,9 +3,9 @@ import { expect } from "chai"
 import * as sinon from "sinon"
 import * as vscode from "vscode"
 import * as path from "path"
-import { FileContextTracker } from "./FileContextTracker"
+import { FileContextTracker } from "../core/context/context-tracking/FileContextTracker"
 import * as diskModule from "@core/storage/disk"
-import type { TaskMetadata, FileMetadataEntry } from "./ContextTrackerTypes"
+import type { TaskMetadata, FileMetadataEntry } from "../core/context/context-tracking/ContextTrackerTypes"
 
 describe("FileContextTracker", () => {
 	let sandbox: sinon.SinonSandbox

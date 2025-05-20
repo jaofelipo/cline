@@ -1,6 +1,6 @@
+import { withRetry } from "@/api/retry"
 import { describe, it } from "mocha"
 import "should"
-import { withRetry } from "./retry"
 
 describe("Retry Decorator", () => {
 	describe("withRetry", () => {
